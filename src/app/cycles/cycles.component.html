@@ -1,0 +1,466 @@
+<div class="cycles-management">
+  <!-- Page Title -->
+  <div class="page-header">
+    <h1>Cycle Inventory Management</h1>
+    <p>Manage your cycles, categories, brands, and stock movements</p>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="tabs-navigation">
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'cycles'" (click)="setActiveTab('cycles')">
+          <i class="bi bi-bicycle"></i> Cycles
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'categories'" (click)="setActiveTab('categories')">
+          <i class="bi bi-tags"></i> Categories
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'brands'" (click)="setActiveTab('brands')">
+          <i class="bi bi-award"></i> Brands
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'stock'" (click)="setActiveTab('stock')">
+          <i class="bi bi-box-seam"></i> Stock Movements
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+    <!-- Cycles Tab -->
+    <div class="tab-pane" [class.active]="activeTab === 'cycles'">
+      <div class="row">
+        <!-- Cycles List -->
+        <div class="col-lg-8">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>Cycles</h3>
+              <button class="btn btn-primary" (click)="resetForms()">
+                <i class="bi bi-plus-circle"></i> New Cycle
+              </button>
+            </div>
+            <!-- Loading Spinner -->
+            <div *ngIf="isLoadingCycles" class="skeleton-loader">
+              <div class="skeleton-header"></div>
+              <div class="skeleton-row" *ngFor="let i of [1,2,3,4,5]">
+                <div class="skeleton-cell skeleton-id"></div>
+                <div class="skeleton-cell skeleton-name"></div>
+                <div class="skeleton-cell skeleton-category"></div>
+                <div class="skeleton-cell skeleton-brand"></div>
+                <div class="skeleton-cell skeleton-price"></div>
+                <div class="skeleton-cell skeleton-stock"></div>
+                <div class="skeleton-cell skeleton-actions"></div>
+              </div>
+            </div>
+            
+            <div class="table-responsive" *ngIf="!isLoadingCycles" [@fadeInOut]>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let cycle of cycles">
+                    <td>{{ cycle.id }}</td>
+                    <td>{{ cycle.name }}</td>
+                    <td>{{ cycle.category }}</td>
+                    <td>{{ cycle.brand }}</td>
+                    <td>₹{{ cycle.price }}</td>
+                    <td>
+                      <span [class.low-stock]="cycle.stock < 5">{{ cycle.stock }}</span>
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-primary me-1" (click)="editCycle(cycle)">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="deleteCycle(cycle)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Cycle Form -->
+        <div class="col-lg-4">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>{{ selectedCycle ? 'Edit Cycle' : 'Add New Cycle' }}</h3>
+            </div>
+            <form [formGroup]="cycleForm" class="form">
+              <div class="form-group">
+                <label for="name">Cycle Name</label>
+                <input type="text" id="name" formControlName="name" class="form-control" placeholder="Enter cycle name">
+              </div>
+              
+              <div class="form-group">
+                <label for="category">Category</label>
+                <select id="category" formControlName="category" class="form-control">
+                  <option value="">Select Category</option>
+                  <option *ngFor="let category of cycleTypes" [value]="category.typeName">{{ category.typeName }}</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="brand">Brand</label>
+                <select id="brand" formControlName="brand" class="form-control">
+                  <option value="">Select Brand</option>
+                  <option *ngFor="let brand of brands" [value]="brand.name">{{ brand.name }}</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="price">Price (₹)</label>
+                <input type="number" id="price" formControlName="price" class="form-control" placeholder="Enter price">
+              </div>
+              
+              <div class="form-group">
+                <label for="stock">Initial Stock</label>
+                <input type="number" id="stock" formControlName="stock" class="form-control" placeholder="Enter stock quantity">
+              </div>
+              
+              <div class="form-group">
+                <label for="image">Image URL (Optional)</label>
+                <input type="text" id="image" formControlName="image" class="form-control" placeholder="Enter image URL">
+              </div>
+              
+              <div class="form-group">
+                <label for="description">Description (Optional)</label>
+                <textarea id="description" formControlName="description" class="form-control" rows="3" placeholder="Enter description"></textarea>
+              </div>
+              
+              <div class="form-group">
+                <button *ngIf="!selectedCycle" type="button" [disabled]="cycleForm.invalid" class="btn btn-primary" (click)="addCycle()">
+                  <i class="bi bi-plus-circle"></i> Add Cycle
+                </button>
+                <button *ngIf="selectedCycle" type="button" [disabled]="cycleForm.invalid" class="btn btn-success" (click)="updateCycle()">
+                  <i class="bi bi-check-circle"></i> Update Cycle
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" (click)="resetForms()">
+                  <i class="bi bi-x-circle"></i> Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Categories Tab -->
+    <div class="tab-pane" [class.active]="activeTab === 'categories'">
+      <!-- Error Message -->
+      <div class="alert alert-danger" *ngIf="errorMessage">
+        {{ errorMessage }}
+        <button type="button" class="btn-close float-end" aria-label="Close" (click)="errorMessage = ''"></button>
+      </div>
+
+      <div class="row">
+        <!-- Categories List -->
+        <div class="col-lg-8">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>Categories</h3>
+              <button class="btn btn-primary" (click)="resetForms()">
+                <i class="bi bi-plus-circle"></i> New Category
+              </button>
+            </div>
+            
+            <!-- Loading Spinner -->
+            <div *ngIf="isLoadingCycleTypes" class="skeleton-loader">
+              <div class="skeleton-header"></div>
+              <div class="skeleton-row" *ngFor="let i of [1,2,3,4,5]">
+                <div class="skeleton-cell skeleton-id"></div>
+                <div class="skeleton-cell skeleton-name"></div>
+                <div class="skeleton-cell skeleton-description"></div>
+                <div class="skeleton-cell skeleton-date"></div>
+                <div class="skeleton-cell skeleton-actions"></div>
+              </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="table-responsive" *ngIf="!isLoadingCycleTypes" [@fadeInOut]>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let cycleType of cycleTypes">
+                    <td>{{ cycleType.typeId.slice(-6) }}</td>
+                    <td>{{ cycleType.typeName }}</td>
+                    <td>{{ cycleType.description | slice:0:50 }}{{ cycleType.description.length > 50 ? '...' : '' }}</td>
+                    <td>{{ cycleType.createdAt | date:'short' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-primary me-1" (click)="editCycleType(cycleType)">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="deleteCycleType(cycleType)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <!-- Empty State -->
+              <div *ngIf="cycleTypes.length === 0" class="text-center p-4">
+                <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                <p class="mt-2">No categories found. Add your first category.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Category Form -->
+        <div class="col-lg-4">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>{{ selectedCycleType ? 'Edit Category' : 'Add New Category' }}</h3>
+            </div>
+            <form [formGroup]="categoryForm" class="form">
+              <div class="form-group">
+                <label for="typeName">Category Name</label>
+                <input type="text" id="typeName" formControlName="typeName" class="form-control" placeholder="Enter category name">
+                <div class="invalid-feedback d-block" *ngIf="categoryForm.get('typeName')?.touched && categoryForm.get('typeName')?.invalid">
+                  Category name is required
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" formControlName="description" class="form-control" rows="4" placeholder="Enter category description"></textarea>
+                <div class="invalid-feedback d-block" *ngIf="categoryForm.get('description')?.touched && categoryForm.get('description')?.invalid">
+                  Description is required
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <button *ngIf="!selectedCycleType" type="button" [disabled]="categoryForm.invalid" class="btn btn-primary" (click)="addCycleType()">
+                  <i class="bi bi-plus-circle"></i> Add Category
+                </button>
+                <button *ngIf="selectedCycleType" type="button" [disabled]="categoryForm.invalid" class="btn btn-success" (click)="updateCycleType()">
+                  <i class="bi bi-check-circle"></i> Update Category
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" (click)="resetForms()">
+                  <i class="bi bi-x-circle"></i> Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Brands Tab -->
+    <div class="tab-pane" [class.active]="activeTab === 'brands'">
+      <div class="row">
+        <!-- Brands List -->
+        <div class="col-lg-8">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>Brands</h3>
+              <button class="btn btn-primary" (click)="resetForms()">
+                <i class="bi bi-plus-circle"></i> New Brand
+              </button>
+            </div>
+            <!-- Loading Spinner -->
+            <div *ngIf="isLoadingBrands" class="skeleton-loader">
+              <div class="skeleton-header"></div>
+              <div class="skeleton-row" *ngFor="let i of [1,2,3,4,5]">
+                <div class="skeleton-cell skeleton-id"></div>
+                <div class="skeleton-cell skeleton-name"></div>
+                <div class="skeleton-cell skeleton-actions"></div>
+              </div>
+            </div>
+            
+            <div class="table-responsive" *ngIf="!isLoadingBrands" [@fadeInOut]>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let brand of brands">
+                    <td>{{ brand.id }}</td>
+                    <td>{{ brand.name }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-primary me-1" (click)="editBrand(brand)">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="deleteBrand(brand)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Brand Form -->
+        <div class="col-lg-4">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>{{ selectedBrand ? 'Edit Brand' : 'Add New Brand' }}</h3>
+            </div>
+            <form [formGroup]="brandForm" class="form">
+              <div class="form-group">
+                <label for="brandName">Brand Name</label>
+                <input type="text" id="brandName" formControlName="name" class="form-control" placeholder="Enter brand name">
+              </div>
+              
+              <div class="form-group">
+                <button *ngIf="!selectedBrand" type="button" [disabled]="brandForm.invalid" class="btn btn-primary" (click)="addBrand()">
+                  <i class="bi bi-plus-circle"></i> Add Brand
+                </button>
+                <button *ngIf="selectedBrand" type="button" [disabled]="brandForm.invalid" class="btn btn-success" (click)="updateBrand()">
+                  <i class="bi bi-check-circle"></i> Update Brand
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" (click)="resetForms()">
+                  <i class="bi bi-x-circle"></i> Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stock Movements Tab -->
+    <div class="tab-pane" [class.active]="activeTab === 'stock'">
+      <div class="row">
+        <!-- Stock Movements List -->
+        <div class="col-lg-8">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>Stock Movements</h3>
+            </div>
+            <!-- Loading Spinner -->
+            <div *ngIf="isLoadingStockMovements" class="skeleton-loader">
+              <div class="skeleton-header"></div>
+              <div class="skeleton-row" *ngFor="let i of [1,2,3,4,5]">
+                <div class="skeleton-cell skeleton-id"></div>
+                <div class="skeleton-cell skeleton-date"></div>
+                <div class="skeleton-cell skeleton-name"></div>
+                <div class="skeleton-cell skeleton-badge"></div>
+                <div class="skeleton-cell skeleton-quantity"></div>
+                <div class="skeleton-cell skeleton-notes"></div>
+                <div class="skeleton-cell skeleton-actions"></div>
+              </div>
+            </div>
+            
+            <div class="table-responsive" *ngIf="!isLoadingStockMovements" [@fadeInOut]>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Cycle</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let movement of stockMovements">
+                    <td>{{ movement.id }}</td>
+                    <td>{{ movement.date | date }}</td>
+                    <td>{{ movement.cycleName }}</td>
+                    <td>
+                      <span class="stock-badge" [class]="movement.type">
+                        {{ movement.type === 'in' ? 'Stock In' : 'Stock Out' }}
+                      </span>
+                    </td>
+                    <td>{{ movement.quantity }}</td>
+                    <td>{{ movement.notes }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-danger" (click)="deleteStockMovement(movement)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Stock Movement Form -->
+        <div class="col-lg-4">
+          <div class="content-card">
+            <div class="card-header">
+              <h3>Add Stock Movement</h3>
+            </div>
+            <form [formGroup]="stockMovementForm" class="form">
+              <div class="form-group">
+                <label for="cycleId">Cycle</label>
+                <select id="cycleId" formControlName="cycleId" class="form-control">
+                  <option value="">Select Cycle</option>
+                  <option *ngFor="let cycle of cycles" [value]="cycle.id">{{ cycle.name }} (Current Stock: {{ cycle.stock }})</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="type">Movement Type</label>
+                <select id="type" formControlName="type" class="form-control">
+                  <option value="in">Stock In</option>
+                  <option value="out">Stock Out</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="quantity">Quantity</label>
+                <input type="number" id="quantity" formControlName="quantity" class="form-control" placeholder="Enter quantity">
+              </div>
+              
+              <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" formControlName="date" class="form-control">
+              </div>
+              
+              <div class="form-group">
+                <label for="notes">Notes (Optional)</label>
+                <textarea id="notes" formControlName="notes" class="form-control" rows="2" placeholder="Enter notes"></textarea>
+              </div>
+              
+              <div class="form-group">
+                <button type="button" [disabled]="stockMovementForm.invalid" class="btn btn-primary" (click)="addStockMovement()">
+                  <i class="bi bi-plus-circle"></i> Add Movement
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" (click)="resetForms()">
+                  <i class="bi bi-x-circle"></i> Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

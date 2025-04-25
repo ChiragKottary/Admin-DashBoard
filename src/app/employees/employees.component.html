@@ -1,0 +1,183 @@
+<div class="employee-management">
+  <!-- Page Title -->
+  <div class="page-header">
+    <h1>Employee Management</h1>
+    <p>Manage employees and their permissions</p>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="filters-section">
+    <div class="search-box">
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Search employees..." class="form-control">
+      <i class="bi bi-search"></i>
+    </div>
+    <div class="status-filter">
+      <label>Status:</label>
+      <div class="btn-group">
+        <button class="btn" [class.btn-primary]="statusFilter === 'all'" [class.btn-outline-primary]="statusFilter !== 'all'" 
+          (click)="statusFilter = 'all'">All</button>
+        <button class="btn" [class.btn-primary]="statusFilter === 'active'" [class.btn-outline-primary]="statusFilter !== 'active'" 
+          (click)="statusFilter = 'active'">Active</button>
+        <button class="btn" [class.btn-primary]="statusFilter === 'inactive'" [class.btn-outline-primary]="statusFilter !== 'inactive'" 
+          (click)="statusFilter = 'inactive'">Inactive</button>
+      </div>
+    </div>
+    <div class="add-button">
+      <button class="btn btn-primary" (click)="resetForm()">
+        <i class="bi bi-person-plus"></i> Add Employee
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Employee List -->
+    <div class="col-lg-8">
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Employees</h3>
+          <div class="employee-count">
+            <span class="count">{{ filteredEmployees.length }}</span> employees found
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Join Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let employee of filteredEmployees">
+                <td>{{ employee.id }}</td>
+                <td>{{ employee.name }}</td>
+                <td>{{ employee.role }}</td>
+                <td>{{ employee.email }}</td>
+                <td>{{ employee.joinDate | date }}</td>
+                <td>
+                  <span class="status-badge" [class]="employee.status">
+                    {{ employee.status }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary me-1" (click)="editEmployee(employee)" title="Edit">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button class="btn btn-sm me-1" [class.btn-outline-success]="employee.status === 'inactive'" [class.btn-outline-warning]="employee.status === 'active'" 
+                    (click)="toggleStatus(employee)" [title]="employee.status === 'active' ? 'Deactivate' : 'Activate'">
+                    <i class="bi" [class.bi-person-check]="employee.status === 'inactive'" [class.bi-person-dash]="employee.status === 'active'"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="deleteEmployee(employee)" title="Delete">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="filteredEmployees.length === 0">
+                <td colspan="7" class="text-center">No employees found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Employee Form -->
+    <div class="col-lg-4">
+      <div class="content-card">
+        <div class="card-header">
+          <h3>{{ selectedEmployee ? 'Edit Employee' : 'Add New Employee' }}</h3>
+        </div>
+        <form [formGroup]="employeeForm" class="form">
+          <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" formControlName="name" class="form-control" placeholder="Enter full name">
+            <div class="error-message" *ngIf="employeeForm.get('name')?.invalid && employeeForm.get('name')?.touched">
+              Name is required.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" formControlName="email" class="form-control" placeholder="Enter email address">
+            <div class="error-message" *ngIf="employeeForm.get('email')?.invalid && employeeForm.get('email')?.touched">
+              Please enter a valid email.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="text" id="phone" formControlName="phone" class="form-control" placeholder="Enter 10 digit phone">
+            <div class="error-message" *ngIf="employeeForm.get('phone')?.invalid && employeeForm.get('phone')?.touched">
+              Please enter a valid 10-digit phone number.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" formControlName="role" class="form-control">
+              <option value="">Select Role</option>
+              <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+            </select>
+            <div class="error-message" *ngIf="employeeForm.get('role')?.invalid && employeeForm.get('role')?.touched">
+              Role is required.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="joinDate">Join Date</label>
+            <input type="date" id="joinDate" formControlName="joinDate" class="form-control">
+          </div>
+          
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" formControlName="status" class="form-control">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="address">Address (Optional)</label>
+            <textarea id="address" formControlName="address" class="form-control" rows="2" placeholder="Enter address"></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="salary">Monthly Salary (Optional)</label>
+            <input type="number" id="salary" formControlName="salary" class="form-control" placeholder="Enter salary amount">
+          </div>
+          
+          <div class="form-group">
+            <label>Permissions</label>
+            <div class="permissions-container">
+              <div *ngFor="let permission of permissionOptions" class="permission-checkbox">
+                <input type="checkbox" [id]="permission.value" [checked]="isPermissionSelected(permission.value)" 
+                  (change)="togglePermission(permission.value)">
+                <label [for]="permission.value">{{ permission.label }}</label>
+              </div>
+            </div>
+            <div class="error-message" *ngIf="employeeForm.get('permissions')?.invalid && employeeForm.get('permissions')?.touched">
+              At least one permission is required.
+            </div>
+          </div>
+          
+          <div class="form-group form-actions">
+            <button *ngIf="!selectedEmployee" type="button" [disabled]="employeeForm.invalid" class="btn btn-primary" (click)="addEmployee()">
+              <i class="bi bi-person-plus"></i> Add Employee
+            </button>
+            <button *ngIf="selectedEmployee" type="button" [disabled]="employeeForm.invalid" class="btn btn-success" (click)="updateEmployee()">
+              <i class="bi bi-check-circle"></i> Update Employee
+            </button>
+            <button type="button" class="btn btn-secondary ms-2" (click)="resetForm()">
+              <i class="bi bi-x-circle"></i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

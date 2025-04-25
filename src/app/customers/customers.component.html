@@ -1,0 +1,242 @@
+<div class="customer-management">
+  <!-- Page Title -->
+  <div class="page-header">
+    <h1>Customer Management</h1>
+    <p>Manage customer information and preferences</p>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="filters-section">
+    <div class="search-box">
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Search customers..." class="form-control">
+      <i class="bi bi-search"></i>
+    </div>
+    <div class="status-filter">
+      <label>Status:</label>
+      <div class="btn-group">
+        <button class="btn" [class.btn-primary]="statusFilter === 'all'" [class.btn-outline-primary]="statusFilter !== 'all'" 
+          (click)="statusFilter = 'all'">All</button>
+        <button class="btn" [class.btn-primary]="statusFilter === 'active'" [class.btn-outline-primary]="statusFilter !== 'active'" 
+          (click)="statusFilter = 'active'">Active</button>
+        <button class="btn" [class.btn-primary]="statusFilter === 'inactive'" [class.btn-outline-primary]="statusFilter !== 'inactive'" 
+          (click)="statusFilter = 'inactive'">Inactive</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content-container">
+    <!-- Customers Table -->
+    <div class="content-card">
+      <div class="card-header">
+        <h3>Customers</h3>
+        <button class="btn btn-primary" (click)="resetForm()">
+          <i class="bi bi-person-plus"></i> New Customer
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>City</th>
+              <th>Registration Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let customer of filteredCustomers">
+              <td>{{ customer.customerId }}</td>
+              <td>{{ getFullName(customer) }}</td>
+              <td>{{ customer.email }}</td>
+              <td>{{ customer.phone }}</td>
+              <td>{{ customer.city }}, {{ customer.state }}</td>
+              <td>{{ formatDate(customer.registrationDate) }}</td>
+              <td>
+                <span class="status-badge" [class]="customer.isActive ? 'active' : 'inactive'">
+                  {{ customer.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="editCustomer(customer)" title="Edit">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm me-1" [class.btn-outline-success]="!customer.isActive" [class.btn-outline-warning]="customer.isActive" 
+                  (click)="toggleCustomerStatus(customer)" [title]="customer.isActive ? 'Deactivate' : 'Activate'">
+                  <i class="bi" [class.bi-check-circle]="!customer.isActive" [class.bi-slash-circle]="customer.isActive"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" (click)="deleteCustomer(customer)" title="Delete">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div *ngIf="filteredCustomers.length === 0" class="no-data">
+          No customers found matching your search criteria.
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Form -->
+    <div class="content-card mt-4">
+      <div class="card-header">
+        <h3>{{ selectedCustomer ? 'Edit Customer' : 'Add New Customer' }}</h3>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="customerForm" class="form">
+          <div class="row">
+            <!-- Basic Information -->
+            <div class="col-md-6">
+              <h4 class="section-title">Basic Information</h4>
+              
+              <div class="row">
+                <div class="col-md-6 form-group">
+                  <label for="firstName">First Name</label>
+                  <input type="text" id="firstName" formControlName="firstName" class="form-control" placeholder="Enter first name">
+                  <div class="error-message" *ngIf="customerForm.get('firstName')?.invalid && customerForm.get('firstName')?.touched">
+                    First name is required.
+                  </div>
+                </div>
+                
+                <div class="col-md-6 form-group">
+                  <label for="lastName">Last Name</label>
+                  <input type="text" id="lastName" formControlName="lastName" class="form-control" placeholder="Enter last name">
+                  <div class="error-message" *ngIf="customerForm.get('lastName')?.invalid && customerForm.get('lastName')?.touched">
+                    Last name is required.
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" formControlName="email" class="form-control" placeholder="Enter email address">
+                <div class="error-message" *ngIf="customerForm.get('email')?.invalid && customerForm.get('email')?.touched">
+                  Please enter a valid email.
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="text" id="phone" formControlName="phone" class="form-control" placeholder="Enter 10-digit phone number">
+                <div class="error-message" *ngIf="customerForm.get('phone')?.invalid && customerForm.get('phone')?.touched">
+                  Please enter a valid 10-digit phone number.
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="isActive" formControlName="isActive">
+                  <label class="form-check-label" for="isActive">
+                    Active Customer
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Address Information -->
+            <div class="col-md-6">
+              <h4 class="section-title">Address Information</h4>
+              
+              <div class="form-group">
+                <label for="address">Address</label>
+                <input type="text" id="address" formControlName="address" class="form-control" placeholder="Enter address">
+                <div class="error-message" *ngIf="customerForm.get('address')?.invalid && customerForm.get('address')?.touched">
+                  Address is required.
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6 form-group">
+                  <label for="city">City</label>
+                  <input type="text" id="city" formControlName="city" class="form-control" placeholder="Enter city">
+                  <div class="error-message" *ngIf="customerForm.get('city')?.invalid && customerForm.get('city')?.touched">
+                    City is required.
+                  </div>
+                </div>
+                
+                <div class="col-md-6 form-group">
+                  <label for="state">State</label>
+                  <select id="state" formControlName="state" class="form-select">
+                    <option value="">Select State</option>
+                    <option *ngFor="let state of states" [value]="state">{{ state }}</option>
+                  </select>
+                  <div class="error-message" *ngIf="customerForm.get('state')?.invalid && customerForm.get('state')?.touched">
+                    State is required.
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="postalCode">PIN Code</label>
+                <input type="text" id="postalCode" formControlName="postalCode" class="form-control" placeholder="Enter 6-digit PIN code">
+                <div class="error-message" *ngIf="customerForm.get('postalCode')?.invalid && customerForm.get('postalCode')?.touched">
+                  Please enter a valid 6-digit PIN code.
+                </div>
+              </div>
+            </div>
+            
+            <!-- Preferences -->
+            <div class="col-12 mt-3">
+              <h4 class="section-title">Customer Preferences</h4>
+              
+              <div class="row">
+                <div class="col-md-4 form-group">
+                  <label for="preferredLanguage">Preferred Language</label>
+                  <select id="preferredLanguage" formControlName="preferredLanguage" class="form-select">
+                    <option value="English">English</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Tamil">Tamil</option>
+                    <option value="Telugu">Telugu</option>
+                    <option value="Marathi">Marathi</option>
+                    <option value="Bengali">Bengali</option>
+                    <option value="Gujarati">Gujarati</option>
+                  </select>
+                </div>
+                
+                <div class="col-md-4 form-group">
+                  <label for="marketingPreferences">Marketing Preferences</label>
+                  <select id="marketingPreferences" formControlName="marketingPreferences" class="form-select">
+                    <option value="Email">Email</option>
+                    <option value="SMS">SMS</option>
+                    <option value="Both">Both Email & SMS</option>
+                    <option value="None">None - Opted Out</option>
+                  </select>
+                </div>
+                
+                <div class="col-md-4 form-group">
+                  <label for="referralSource">Referral Source</label>
+                  <select id="referralSource" formControlName="referralSource" class="form-select">
+                    <option value="">Select Source</option>
+                    <option value="Friend">Friend/Family</option>
+                    <option value="Google">Google Search</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Advertisement">Advertisement</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Form Actions -->
+          <div class="form-actions mt-4">
+            <button *ngIf="!selectedCustomer" type="button" [disabled]="customerForm.invalid" class="btn btn-primary" (click)="addCustomer()">
+              <i class="bi bi-person-plus"></i> Add Customer
+            </button>
+            <button *ngIf="selectedCustomer" type="button" [disabled]="customerForm.invalid" class="btn btn-success" (click)="updateCustomer()">
+              <i class="bi bi-check-circle"></i> Update Customer
+            </button>
+            <button type="button" class="btn btn-secondary ms-2" (click)="resetForm()">
+              <i class="bi bi-x-circle"></i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

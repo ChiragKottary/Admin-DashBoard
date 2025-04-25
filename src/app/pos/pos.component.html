@@ -1,0 +1,350 @@
+<div class="pos-system">
+  <!-- Page Title -->
+  <div class="page-header">
+    <h1>Point of Sale</h1>
+    <p>Process sales transactions and manage customer orders</p>
+  </div>
+
+  <div class="row">
+    <!-- Left Column - Products and Search -->
+    <div class="col-lg-8">
+      <!-- Search and Filters -->
+      <div class="content-card">
+        <div class="search-filters">
+          <div class="search-box">
+            <input type="text" [(ngModel)]="cycleSearchTerm" placeholder="Search cycles by name or brand..." class="form-control">
+            <i class="bi bi-search"></i>
+          </div>
+          <div class="category-filter">
+            <select [(ngModel)]="categoryFilter" class="form-select">
+              <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cycles Grid -->
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Available Cycles</h3>
+        </div>
+        <div class="cycles-grid">
+          <div *ngFor="let cycle of filteredCycles" class="cycle-item" [class.out-of-stock]="cycle.stock <= 0">
+            <div class="cycle-image">
+              <img [src]="cycle.image || 'assets/images/cycle-placeholder.jpg'" alt="{{ cycle.name }}">
+              <span class="stock-badge" [class.low]="cycle.stock > 0 && cycle.stock < 5" [class.out]="cycle.stock <= 0">
+                {{ cycle.stock > 0 ? 'In Stock: ' + cycle.stock : 'Out of Stock' }}
+              </span>
+            </div>
+            <div class="cycle-details">
+              <h4>{{ cycle.name }}</h4>
+              <p class="category">{{ cycle.category }} | {{ cycle.brand }}</p>
+              <div class="price-action">
+                <p class="price">₹{{ cycle.price }}</p>
+                <button class="btn btn-primary" [disabled]="cycle.stock <= 0" (click)="addToCart(cycle)">
+                  <i class="bi bi-cart-plus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="filteredCycles.length === 0" class="no-results">
+            No cycles found matching your search criteria.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column - Cart and Customer -->
+    <div class="col-lg-4">
+      <!-- Customer Selection -->
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Customer</h3>
+        </div>
+        <div class="customer-search">
+          <div class="search-container">
+            <input type="text" [(ngModel)]="customerSearchTerm" placeholder="Search customers..." class="form-control">
+            <i class="bi bi-search"></i>
+          </div>
+          
+          <div class="customer-results" *ngIf="filteredCustomers.length > 0 && !selectedCustomer">
+            <div *ngFor="let customer of filteredCustomers" class="customer-item" (click)="selectCustomer(customer)">
+              <div class="customer-info">
+                <h4>{{ customer.name }}</h4>
+                <p>{{ customer.phone }} | {{ customer.email }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="selected-customer" *ngIf="selectedCustomer">
+            <div class="customer-card">
+              <div class="customer-info">
+                <h4>{{ selectedCustomer.name }}</h4>
+                <p><i class="bi bi-envelope"></i> {{ selectedCustomer.email }}</p>
+                <p><i class="bi bi-telephone"></i> {{ selectedCustomer.phone }}</p>
+                <p *ngIf="selectedCustomer.address"><i class="bi bi-geo-alt"></i> {{ selectedCustomer.address }}</p>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary" (click)="clearCustomer()">
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cart -->
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Shopping Cart</h3>
+          <button *ngIf="cartItems.length > 0" class="btn btn-sm btn-outline-danger" (click)="clearCart()">
+            <i class="bi bi-trash"></i> Clear
+          </button>
+        </div>
+        <div class="cart-items">
+          <div *ngFor="let item of cartItems" class="cart-item">
+            <div class="item-details">
+              <h4>{{ item.cycle.name }}</h4>
+              <p class="item-price">₹{{ item.cycle.price }} x {{ item.quantity }}</p>
+            </div>
+            <div class="item-actions">
+              <div class="quantity-controls">
+                <button class="btn btn-sm btn-outline-secondary" (click)="updateQuantity(item, -1)">-</button>
+                <span class="quantity">{{ item.quantity }}</span>
+                <button class="btn btn-sm btn-outline-secondary" [disabled]="item.quantity >= item.cycle.stock" (click)="updateQuantity(item, 1)">+</button>
+              </div>
+              <button class="btn btn-sm btn-outline-danger" (click)="removeFromCart(item)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div *ngIf="cartItems.length === 0" class="empty-cart">
+            <i class="bi bi-cart"></i>
+            <p>Your cart is empty</p>
+          </div>
+        </div>
+        
+        <div class="cart-summary">
+          <div class="summary-row">
+            <span>Total Items:</span>
+            <span>{{ cartItems.length }}</span>
+          </div>
+          <div class="summary-row total">
+            <span>Total Amount:</span>
+            <span>₹{{ cartTotal }}</span>
+          </div>
+          <button class="btn btn-success checkout-btn" [disabled]="cartItems.length === 0 || !selectedCustomer" (click)="openCheckoutModal()">
+            <i class="bi bi-credit-card"></i> Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Details Modal -->
+  <div class="modal-backdrop" *ngIf="showCustomerDetailsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Customer Details</h3>
+        <button class="close-btn" (click)="closeCustomerDetailsModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="customerDetailsForm" class="checkout-form">
+          <!-- Order Type Selection -->
+          <div class="form-group mb-4">
+            <label class="text-gray-700 font-medium block mb-2">Order Type</label>
+            <div class="flex space-x-6">
+              <div class="flex items-center">
+                <input type="radio" id="inStore" formControlName="orderType" value="inStore" class="mr-2">
+                <label for="inStore" class="cursor-pointer">In-Store Purchase</label>
+              </div>
+              <div class="flex items-center">
+                <input type="radio" id="delivery" formControlName="orderType" value="delivery" class="mr-2">
+                <label for="delivery" class="cursor-pointer">Home Delivery</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer Info -->
+          <div class="customer-info mb-4">
+            <h4 class="text-gray-700 font-medium mb-2">Customer Information</h4>
+            <div class="bg-gray-50 p-4 rounded mb-4">
+              <div class="text-sm"><span class="font-semibold">Name:</span> {{ selectedCustomer?.name }}</div>
+              <div class="text-sm"><span class="font-semibold">Email:</span> {{ selectedCustomer?.email }}</div>
+              <div class="text-sm"><span class="font-semibold">Phone:</span> {{ selectedCustomer?.phone }}</div>
+              <div class="text-sm" *ngIf="selectedCustomer?.address"><span class="font-semibold">Address:</span> {{ selectedCustomer?.address }}</div>
+            </div>
+          </div>
+
+          <!-- Shipping Address (only visible if delivery is selected) -->
+          <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="delivery-details">
+            <h4 class="text-gray-700 font-medium mb-2">Shipping Details</h4>
+            <div class="form-group mb-3">
+              <label for="shippingAddress" class="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
+              <textarea id="shippingAddress" formControlName="shippingAddress" class="form-control" rows="3" placeholder="Enter shipping address"></textarea>
+              <div *ngIf="customerDetailsForm.get('shippingAddress')?.invalid && customerDetailsForm.get('shippingAddress')?.touched" class="text-red-600 text-sm mt-1">
+                Shipping address is required
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+              <div class="form-group">
+                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                <input type="text" id="city" formControlName="city" class="form-control" placeholder="Enter city">
+                <div *ngIf="customerDetailsForm.get('city')?.invalid && customerDetailsForm.get('city')?.touched" class="text-red-600 text-sm mt-1">
+                  City is required
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="pincode" class="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
+                <input type="text" id="pincode" formControlName="pincode" class="form-control" placeholder="Enter PIN code">
+                <div *ngIf="customerDetailsForm.get('pincode')?.invalid && customerDetailsForm.get('pincode')?.touched" class="text-red-600 text-sm mt-1">
+                  Valid PIN code is required
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label for="deliveryInstructions" class="block text-sm font-medium text-gray-700 mb-1">Delivery Instructions (Optional)</label>
+              <textarea id="deliveryInstructions" formControlName="deliveryInstructions" class="form-control" rows="2" placeholder="Any special instructions for delivery"></textarea>
+            </div>
+          </div>
+          
+          <!-- Order Summary -->
+          <div class="order-summary my-4">
+            <h4 class="text-gray-700 font-medium mb-2">Order Summary</h4>
+            <div class="bg-gray-50 p-4 rounded">
+              <div class="max-h-40 overflow-y-auto mb-3">
+                <div *ngFor="let item of cartItems" class="flex justify-between py-1 text-sm border-b border-gray-200 last:border-0">
+                  <span>{{ item.cycle.name }} x {{ item.quantity }}</span>
+                  <span>₹{{ item.cycle.price * item.quantity | number:'1.0-0' }}</span>
+                </div>
+              </div>
+              
+              <div class="flex justify-between py-1 text-sm">
+                <span>Subtotal:</span>
+                <span>₹{{ calculateSubtotal() | number:'1.0-0' }}</span>
+              </div>
+              
+              <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="flex justify-between py-1 text-sm">
+                <span>Delivery Fee:</span>
+                <span>₹{{ deliveryFee | number:'1.0-0' }}</span>
+              </div>
+              
+              <div class="flex justify-between py-1 text-sm">
+                <span>Tax (18%):</span>
+                <span>₹{{ calculateTax() | number:'1.0-0' }}</span>
+              </div>
+              
+              <div class="flex justify-between py-2 text-base font-semibold border-t border-gray-300 mt-1">
+                <span>Total:</span>
+                <span>₹{{ calculateTotal() | number:'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions flex justify-end gap-3 mt-6">
+            <button type="button" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800" (click)="closeCustomerDetailsModal()">
+              Cancel
+            </button>
+            <button type="button" class="btn bg-blue-600 hover:bg-blue-700 text-white" [disabled]="!isCustomerDetailsValid()" (click)="proceedToPayment()">
+              Proceed to Payment
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-backdrop" *ngIf="showPaymentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Payment</h3>
+        <button class="close-btn" (click)="closePaymentModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="paymentForm" class="payment-form">
+          <div class="form-group">
+            <label>Payment Method</label>
+            <div class="payment-methods">
+              <div class="payment-option">
+                <input type="radio" id="razorpay" formControlName="paymentMethod" value="razorpay">
+                <label for="razorpay" class="flex items-center">
+                  <span class="mr-2">Razorpay</span>
+                  <i class="bi bi-credit-card text-blue-600"></i>
+                </label>
+              </div>
+              <div class="payment-option">
+                <input type="radio" id="cash" formControlName="paymentMethod" value="cash">
+                <label for="cash" class="flex items-center">
+                  <span class="mr-2">Cash</span>
+                  <i class="bi bi-cash text-green-600"></i>
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <div *ngIf="paymentForm.value.paymentMethod === 'razorpay'" class="card-details">
+            <div class="p-4 bg-blue-50 rounded mb-4">
+              <p class="text-sm text-gray-700">
+                You will be redirected to Razorpay's secure payment gateway to complete your payment.
+              </p>
+            </div>
+          </div>
+          
+          <div *ngIf="paymentForm.value.paymentMethod === 'cash'" class="cash-details">
+            <div class="form-group">
+              <label for="cashAmount">Cash Amount</label>
+              <input type="number" id="cashAmount" formControlName="cashAmount" class="form-control" placeholder="Enter amount">
+            </div>
+            <div class="form-group" *ngIf="paymentForm.value.cashAmount && +paymentForm.value.cashAmount > calculateTotal()">
+              <label>Change</label>
+              <div class="change-amount">₹{{ +paymentForm.value.cashAmount - calculateTotal() | number:'1.0-0' }}</div>
+            </div>
+          </div>
+          
+          <div class="order-summary">
+            <h4>Final Summary</h4>
+            <div class="summary-items">
+              <div *ngFor="let item of cartItems" class="summary-item">
+                <span>{{ item.cycle.name }} x {{ item.quantity }}</span>
+                <span>₹{{ item.cycle.price * item.quantity | number:'1.0-0' }}</span>
+              </div>
+            </div>
+            
+            <div class="summary-subtotal">
+              <span>Subtotal:</span>
+              <span>₹{{ calculateSubtotal() | number:'1.0-0' }}</span>
+            </div>
+            
+            <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="summary-subtotal">
+              <span>Delivery:</span>
+              <span>₹{{ deliveryFee | number:'1.0-0' }}</span>
+            </div>
+            
+            <div class="summary-subtotal">
+              <span>Tax (18%):</span>
+              <span>₹{{ calculateTax() | number:'1.0-0' }}</span>
+            </div>
+            
+            <div class="summary-total">
+              <span>Total:</span>
+              <span>₹{{ calculateTotal() | number:'1.0-0' }}</span>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" (click)="closePaymentModal()">Cancel</button>
+            <button type="button" class="btn btn-success" (click)="processPayment()">
+              {{ paymentForm.value.paymentMethod === 'razorpay' ? 'Proceed to Razorpay' : 'Complete Payment' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

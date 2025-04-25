@@ -1,0 +1,86 @@
+<div class="flex h-screen overflow-hidden">
+  <!-- Sidebar -->
+  <nav class="bg-gradient-to-b from-blue-800 to-blue-900 text-white transition-all duration-300 ease-in-out" 
+       [ngClass]="isSidebarCollapsed ? 'w-20' : 'w-64'">
+    <div class="p-4 border-b border-blue-700 flex items-center justify-center">
+      <i class="bi bi-bicycle text-2xl mr-3" [class.hidden]="isSidebarCollapsed"></i>
+      <h3 class="text-lg font-bold truncate transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed">Cycle Enterprise</h3>
+    </div>
+    <ul class="mt-6 space-y-2 px-3">
+      <li>
+        <a routerLink="/dashboard" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-speedometer2 text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Dashboard</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/cycles" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-bicycle text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Cycles</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/customers" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-person-lines-fill text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Customers</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/employees" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-people text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Employees</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/pos" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-cart3 text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">POS</span>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/orders" routerLinkActive="bg-blue-700"
+           class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
+          <i class="bi bi-box text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Orders</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="flex flex-col flex-1 overflow-hidden bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center">
+        <button class="text-gray-600 hover:text-blue-600 focus:outline-none" (click)="toggleSidebar()">
+          <i class="bi bi-list text-2xl"></i>
+        </button>
+        <div class="ml-4 text-lg font-semibold text-gray-800">Admin Dashboard</div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="relative">
+          <button class="text-gray-600 hover:text-blue-600 focus:outline-none">
+            <i class="bi bi-bell text-xl"></i>
+            <span class="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
+          </button>
+        </div>
+        <div class="flex items-center space-x-3">
+          <span class="text-gray-700 font-medium hidden md:block">Admin User</span>
+          <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
+            <i class="bi bi-person"></i>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Page Content -->
+    <div class="flex-1 overflow-auto p-6">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>

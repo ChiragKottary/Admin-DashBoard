@@ -1,0 +1,124 @@
+<div class="dashboard">
+  <!-- Page Title -->
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Welcome back, Admin! Here's what's happening with your store today.</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Total Cycles</h5>
+        <h2>{{ totalCycles }}</h2>
+        <p>In Inventory</p>
+      </div>
+      <div class="card-icon">
+        <i class="bi bi-bicycle"></i>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Revenue</h5>
+        <h2>₹{{ totalRevenue | number }}</h2>
+        <p>Last 30 days</p>
+      </div>
+      <div class="card-icon">
+        <i class="bi bi-currency-rupee"></i>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Employees</h5>
+        <h2>{{ totalEmployees }}</h2>
+        <p>Active</p>
+      </div>
+      <div class="card-icon">
+        <i class="bi bi-people"></i>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Orders</h5>
+        <h2>{{ pendingOrders }}</h2>
+        <p>Pending</p>
+      </div>
+      <div class="card-icon">
+        <i class="bi bi-box"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Action Shortcuts -->
+  <div class="quick-actions">
+    <h3>Quick Actions</h3>
+    <div class="action-buttons">
+      <a routerLink="/cycles" class="action-btn">
+        <i class="bi bi-plus-circle"></i> Add Cycle
+      </a>
+      <a routerLink="/employees" class="action-btn">
+        <i class="bi bi-person-plus"></i> Add Employee
+      </a>
+      <a routerLink="/pos" class="action-btn">
+        <i class="bi bi-cart-plus"></i> New Sale
+      </a>
+      <a routerLink="/orders" class="action-btn">
+        <i class="bi bi-list-check"></i> View Orders
+      </a>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="charts-section">
+    <div class="chart-container">
+      <canvas baseChart
+        [data]="salesChartData"
+        [options]="salesChartOptions"
+        [type]="'line'">
+      </canvas>
+    </div>
+
+    <div class="chart-container">
+      <canvas baseChart
+        [data]="stockChartData"
+        [options]="stockChartOptions"
+        [type]="'doughnut'">
+      </canvas>
+    </div>
+  </div>
+
+  <!-- Recent Orders -->
+  <div class="recent-orders">
+    <div class="section-header">
+      <h3>Recent Orders</h3>
+      <a routerLink="/orders" class="view-all">View All</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of recentOrders">
+            <td>{{ order.id }}</td>
+            <td>{{ order.customer }}</td>
+            <td>{{ order.date | date }}</td>
+            <td>₹{{ order.amount }}</td>
+            <td>
+              <span class="status-badge" [class]="order.status.toLowerCase()">{{ order.status }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
