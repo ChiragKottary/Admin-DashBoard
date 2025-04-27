@@ -2,7 +2,7 @@
   <!-- Page Title -->
   <div class="page-header">
     <h1>Dashboard</h1>
-    <p>Welcome back, Admin! Here's what's happening with your store today.</p>
+    <p>Welcome back! Here's what's happening with your store today.</p>
   </div>
 
   <!-- Summary Cards -->
@@ -29,7 +29,8 @@
       </div>
     </div>
 
-    <div class="card">
+    <!-- Only show Employees card for Admin users -->
+    <div class="card" *ngIf="isAdmin">
       <div class="card-body">
         <h5 class="card-title">Employees</h5>
         <h2>{{ totalEmployees }}</h2>
@@ -59,7 +60,8 @@
       <a routerLink="/cycles" class="action-btn">
         <i class="bi bi-plus-circle"></i> Add Cycle
       </a>
-      <a routerLink="/employees" class="action-btn">
+      <!-- Only show Add Employee button for Admin users -->
+      <a routerLink="/employees" class="action-btn" *ngIf="isAdmin">
         <i class="bi bi-person-plus"></i> Add Employee
       </a>
       <a routerLink="/pos" class="action-btn">

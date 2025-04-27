@@ -1,11 +1,10 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
-import { BaseChartDirective  } from 'ng2-charts';
-import { Chart, ChartConfiguration, ChartData } from 'chart.js';
+import { BaseChartDirective } from 'ng2-charts';
+import { Chart, ChartConfiguration } from 'chart.js';
 import { CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+import { AuthService } from '../services/auth.service';
 
 Chart.register(
   CategoryScale,
@@ -32,6 +31,7 @@ export class DashboardComponent implements OnInit {
   totalRevenue: number = 52450;
   totalEmployees: number = 12;
   pendingOrders: number = 8;
+  isAdmin: boolean = false;
   
   // Sales chart data
   public salesChartData: ChartConfiguration['data'] = {
@@ -113,9 +113,14 @@ export class DashboardComponent implements OnInit {
     { id: 'ORD-1237', customer: 'Neha Patel', date: '2025-04-24', amount: 6300, status: 'Pending' }
   ];
 
-  constructor() {}
+  constructor(private authService: AuthService) {}
 
   ngOnInit(): void {
-    // Any initialization logic
+    // Check if user has admin role
+    this.authService.user$.subscribe(user => {
+      if (user) {
+        this.isAdmin = user.roles.includes('Admin');
+      }
+    });
   }
 }

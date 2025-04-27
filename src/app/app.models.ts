@@ -2,7 +2,13 @@
 export enum MovementType {
     IN = 'IN',
     OUT = 'OUT',
-    ADJUSTMENT = 'ADJUSTMENT'
+    ADJUSTMENT = 'ADJUSTMENT',
+    StockIn = 0,
+    StockOut = 1,
+    InitialStock = 2,
+    Adjustment = 3,
+    Return = 4,
+    Damaged = 5
 }
 
 export enum OrderStatus {
@@ -40,11 +46,11 @@ export interface IStockMovement {
     cycleId: string;
     quantity: number;
     movementType: MovementType;
-    referenceId?: string;
+    referenceId?: string | null;
     userId: string;
-    notes: string;
-    movementDate: Date;
-    updatedAt: Date;
+    notes?: string;
+    movementDate: string;
+    updatedAt: string;
     cycle?: ICycle;
     user?: IUser;
 }
@@ -241,4 +247,32 @@ export interface IBrand {
     updatedAt: Date;
     isActive: boolean;
     cycles?: ICycle[];
+}
+
+export interface IStockAdjustmentRequest {
+    cycleId: string;
+    quantity: number;
+    userId: string;
+    movementType: MovementType;
+    notes?: string;
+}
+
+export interface IStockAdjustmentResponse {
+    movement: {
+        movementId: string;
+        cycleId: string;
+        quantity: number;
+        movementType: MovementType;
+        userId: string;
+        notes?: string;
+        movementDate: string;
+        updatedAt: string;
+    };
+    cycle: {
+        cycleId: string;
+        modelName: string;
+        stockQuantity: number;
+        price: number;
+        updatedAt: string;
+    };
 }

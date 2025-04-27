@@ -2,45 +2,54 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { 
+  ICycle, 
+  ICustomer, 
+  ICartItem, 
+  ICart, 
+  IOrder, 
+  OrderStatus, 
+  PaymentStatus,
+  ICycleType
+} from '../app.models';
 
-interface Cycle {
-  id: number;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  stock: number;
-  image?: string;
-  description?: string;
+// Extended interfaces to match the template requirements
+interface ExtendedCustomer extends ICustomer {
+  fullName: string;
+  hasActiveCart: boolean;
 }
 
-interface Customer {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  address?: string;
-  purchaseHistory: Order[];
+interface ExtendedCartItem extends ICartItem {
+  cycleName: string;
+  cycleBrand: string;
+  cycleType: string;
+  cycleImage?: string;
 }
 
-interface CartItem {
-  cycle: Cycle;
-  quantity: number;
+interface ExtendedCart extends ICart {
+  totalAmount: number;
+  totalItems: number;
+  cartItems: ExtendedCartItem[];
 }
 
-interface Order {
-  id: string;
-  customerId: number;
-  customerName: string;
-  items: CartItem[];
-  total: number;
-  date: string;
-  paymentMethod: string;
-  status: 'completed' | 'processing' | 'pending' | 'cancelled';
+// Interface for order creation
+interface OrderCreate {
+  orderId?: string;
+  customerId: string;
+  orderNumber?: string;
+  status: OrderStatus;
+  totalAmount: number;
   shippingAddress?: string;
-  deliveryFee?: number;
-  paymentId?: string;
-  orderType: 'inStore' | 'delivery';
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  notes?: string;
+  orderItems: {
+    cycleId: string;
+    quantity: number;
+    unitPrice: number;
+  }[];
 }
 
 @Component({
@@ -51,44 +60,26 @@ interface Order {
   styleUrl: './pos.component.scss'
 })
 export class PosComponent implements OnInit {
-  // Available cycles
-  cycles: Cycle[] = [
-    { id: 1, name: 'Mountain Explorer Pro', category: 'Mountain Bikes', brand: 'TrekCycle', price: 24999, stock: 10, image: 'assets/images/mountain-bike.jpg', description: 'High-performance mountain bike for rough terrains' },
-    { id: 2, name: 'City Cruiser', category: 'City Bikes', brand: 'UrbanRide', price: 15999, stock: 15, image: 'assets/images/city-bike.jpg', description: 'Comfortable city bike for daily commute' },
-    { id: 3, name: 'Road Master', category: 'Road Bikes', brand: 'SpeedCycle', price: 34999, stock: 5, image: 'assets/images/road-bike.jpg', description: 'Lightweight race bike for speed enthusiasts' },
-    { id: 4, name: 'Hybrid Commuter', category: 'Hybrid Bikes', brand: 'CommutePro', price: 18999, stock: 8, image: 'assets/images/hybrid-bike.jpg', description: 'Versatile bike for various terrains and conditions' },
-    { id: 5, name: 'Kids Explorer', category: 'Kids Bikes', brand: 'JuniorRide', price: 6500, stock: 18, image: 'assets/images/kids-bike.jpg', description: 'Safe and durable bike for children aged 7-10' },
-  ];
+  // API URL
+  private apiUrl = 'https://localhost:7042/api';
   
-  customers: Customer[] = [
-    { 
-      id: 1, 
-      name: 'Rahul Sharma', 
-      email: 'rahul@example.com', 
-      phone: '9876543210',
-      address: '123 Main Street, Mumbai',
-      purchaseHistory: [] 
-    },
-    { 
-      id: 2, 
-      name: 'Priya Singh', 
-      email: 'priya@example.com', 
-      phone: '8765432109',
-      address: '456 Park Avenue, Delhi',
-      purchaseHistory: [] 
-    }
-  ];
+  // Cycles
+  cycles: ICycle[] = [];
+  
+  // Customers
+  customers: ExtendedCustomer[] = [];
   
   // Cart
-  cartItems: CartItem[] = [];
+  cartItems: ExtendedCartItem[] = [];
+  activeCart: ExtendedCart | null = null;
   
   // Search and filters
   cycleSearchTerm: string = '';
   customerSearchTerm: string = '';
-  categoryFilter: string = '';
+  categoryFilter: string = 'All Categories';
   
   // Selected customer
-  selectedCustomer: Customer | null = null;
+  selectedCustomer: ExtendedCustomer | null = null;
   
   // Modal states
   showCustomerDetailsModal: boolean = false;
@@ -102,53 +93,16 @@ export class PosComponent implements OnInit {
   deliveryFee: number = 100;
   
   // Recent orders
-  recentOrders: Order[] = [
-    {
-      id: 'ORD-1234',
-      customerId: 1,
-      customerName: 'Rahul Sharma',
-      items: [
-        { 
-          cycle: this.cycles[0], 
-          quantity: 1
-        }
-      ],
-      total: 24999,
-      date: '2025-04-22',
-      paymentMethod: 'Card',
-      status: 'completed',
-      orderType: 'inStore'
-    },
-    {
-      id: 'ORD-1235',
-      customerId: 2,
-      customerName: 'Priya Singh',
-      items: [
-        { 
-          cycle: this.cycles[4], 
-          quantity: 1
-        }
-      ],
-      total: 6500,
-      date: '2025-04-23',
-      paymentMethod: 'Cash',
-      status: 'completed',
-      orderType: 'inStore'
-    }
-  ];
-
-  // Categories
-  categories: string[] = [
-    'All Categories',
-    'Mountain Bikes',
-    'Road Bikes',
-    'Hybrid Bikes',
-    'City Bikes',
-    'BMX',
-    'Kids Bikes'
-  ];
+  recentOrders: IOrder[] = [];
   
-  constructor(private fb: FormBuilder) {
+  // Customer search timeout
+  private customerSearchTimeout: any;
+  
+  // Categories - Will be populated from API
+  categories: string[] = ['All Categories'];
+  cycleTypes: ICycleType[] = [];
+  
+  constructor(private fb: FormBuilder, private http: HttpClient) {
     // Initialize payment form
     this.paymentForm = this.fb.group({
       paymentMethod: ['razorpay', Validators.required],
@@ -162,173 +116,391 @@ export class PosComponent implements OnInit {
     this.customerDetailsForm = this.fb.group({
       orderType: ['inStore', Validators.required],
       shippingAddress: [''],
-      city: [''],
-      pincode: [''],
+      shippingCity: [''],
+      shippingState: [''],
+      shippingPostalCode: [''],
       deliveryInstructions: ['']
     });
     
     // Set up conditional validation for delivery details
     this.customerDetailsForm.get('orderType')?.valueChanges.subscribe(orderType => {
-      const shippingAddressControl = this.customerDetailsForm.get('shippingAddress');
-      const cityControl = this.customerDetailsForm.get('city');
-      const pincodeControl = this.customerDetailsForm.get('pincode');
-      
       if (orderType === 'delivery') {
-        shippingAddressControl?.setValidators(Validators.required);
-        cityControl?.setValidators(Validators.required);
-        pincodeControl?.setValidators([Validators.required, Validators.pattern('^[0-9]{6}$')]);
+        this.customerDetailsForm.get('shippingAddress')?.setValidators([Validators.required]);
+        this.customerDetailsForm.get('shippingCity')?.setValidators([Validators.required]);
+        this.customerDetailsForm.get('shippingPostalCode')?.setValidators([Validators.required, Validators.pattern(/^\d{6}$/)]);
+        this.customerDetailsForm.get('shippingState')?.setValidators([Validators.required]);
       } else {
-        shippingAddressControl?.clearValidators();
-        cityControl?.clearValidators();
-        pincodeControl?.clearValidators();
+        this.customerDetailsForm.get('shippingAddress')?.clearValidators();
+        this.customerDetailsForm.get('shippingCity')?.clearValidators();
+        this.customerDetailsForm.get('shippingPostalCode')?.clearValidators();
+        this.customerDetailsForm.get('shippingState')?.clearValidators();
       }
       
-      shippingAddressControl?.updateValueAndValidity();
-      cityControl?.updateValueAndValidity();
-      pincodeControl?.updateValueAndValidity();
-    });
-    
-    // Add purchase history to customers
-    this.customers.forEach(customer => {
-      customer.purchaseHistory = this.recentOrders.filter(order => 
-        order.customerId === customer.id
-      );
+      this.customerDetailsForm.get('shippingAddress')?.updateValueAndValidity();
+      this.customerDetailsForm.get('shippingCity')?.updateValueAndValidity();
+      this.customerDetailsForm.get('shippingPostalCode')?.updateValueAndValidity();
+      this.customerDetailsForm.get('shippingState')?.updateValueAndValidity();
     });
   }
 
   ngOnInit(): void {
-    // Load Razorpay script
     this.loadRazorpayScript();
+    this.loadCycles();
+    this.loadCycleTypes();
+    this.loadRecentOrders();
   }
 
   // Load Razorpay script
   loadRazorpayScript(): void {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
     document.body.appendChild(script);
   }
 
+  // Load cycle types from API
+  loadCycleTypes(): void {
+    this.http.get<any>(`${this.apiUrl}/CycleType`).subscribe({
+      next: (response) => {
+        if (response && response.items) {
+          this.cycleTypes = response.items;
+          // Add all cycle types to categories
+          this.categories = ['All Categories', ...this.cycleTypes.map(type => type.typeName)];
+        }
+      },
+      error: (error) => {
+        console.error('Error loading cycle types:', error);
+      }
+    });
+  }
+
+  // Load cycles from API
+  loadCycles(): void {
+    // Use a large pageSize to effectively disable pagination and get all cycles
+    this.http.get<any>(`${this.apiUrl}/Cycle?pageSize=1000`).subscribe({
+      next: (response) => {
+        if (response && response.items) {
+          this.cycles = response.items;
+          console.log(`Loaded ${this.cycles.length} cycles`);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading cycles:', error);
+      }
+    });
+  }
+
+  // Load recent orders
+  loadRecentOrders(): void {
+    this.http.get<any>(`${this.apiUrl}/Order?pageSize=5&sortBy=orderDate&sortDirection=desc`).subscribe({
+      next: (response) => {
+        if (response && response.items) {
+          this.recentOrders = response.items;
+        }
+      },
+      error: (error) => {
+        console.error('Error loading recent orders:', error);
+      }
+    });
+  }
+
+  // Search customers
+  searchCustomers(): void {
+    if (this.customerSearchTimeout) {
+      clearTimeout(this.customerSearchTimeout);
+    }
+    
+    if (this.customerSearchTerm.trim().length < 1) {
+      this.customers = [];
+      return;
+    }
+    
+    this.customerSearchTimeout = setTimeout(() => {
+      this.http.get<any[]>(`${this.apiUrl}/Customers/search?searchTerm=${this.customerSearchTerm}`).subscribe({
+        next: (response) => {
+          // Transform the API customer data to match our extended interface
+          this.customers = response.map(customer => ({
+            ...customer,
+            fullName: `${customer.firstName} ${customer.lastName}`,
+            hasActiveCart: customer.carts?.some((cart: any) => cart.isActive) ?? false
+          })) as ExtendedCustomer[];
+        },
+        error: (error) => {
+          console.error('Error searching customers:', error);
+        }
+      });
+    }, 300);
+  }
+
   // Filter cycles by search term and category
-  get filteredCycles(): Cycle[] {
-    let filtered = [...this.cycles];
-    
-    if (this.categoryFilter && this.categoryFilter !== 'All Categories') {
-      filtered = filtered.filter(cycle => cycle.category === this.categoryFilter);
-    }
-    
-    if (this.cycleSearchTerm.trim() !== '') {
-      const term = this.cycleSearchTerm.toLowerCase();
-      filtered = filtered.filter(cycle => 
-        cycle.name.toLowerCase().includes(term) ||
-        cycle.brand.toLowerCase().includes(term) ||
-        cycle.category.toLowerCase().includes(term)
-      );
-    }
-    
-    return filtered;
+  get filteredCycles(): ICycle[] {
+    return this.cycles.filter(cycle => {
+      // Filter by search term
+      const matchesTerm = this.cycleSearchTerm.trim() === '' ||
+        cycle.modelName.toLowerCase().includes(this.cycleSearchTerm.toLowerCase()) ||
+        cycle.brand?.brandName?.toLowerCase().includes(this.cycleSearchTerm.toLowerCase());
+      
+      // Filter by category
+      const matchesCategory = this.categoryFilter === 'All Categories' ||
+        cycle.cycleType?.typeName === this.categoryFilter;
+      
+      return matchesTerm && matchesCategory;
+    });
   }
 
   // Filter customers by search term
-  get filteredCustomers(): Customer[] {
-    if (this.customerSearchTerm === '') {
-      return [];
-    }
-    
-    return this.customers
-      .filter(customer => 
-        customer.name.toLowerCase().includes(this.customerSearchTerm.toLowerCase()) ||
-        customer.phone.includes(this.customerSearchTerm) ||
-        customer.email.toLowerCase().includes(this.customerSearchTerm.toLowerCase())
-      );
+  get filteredCustomers(): ExtendedCustomer[] {
+    return this.customers;
   }
 
   // Add item to cart
-  addToCart(cycle: Cycle): void {
-    if (cycle.stock <= 0) {
+  addToCart(cycle: ICycle): void {
+    if (!this.selectedCustomer) {
+      alert('Please select a customer first before adding items to cart.');
+      return;
+    }
+    
+    if (cycle.stockQuantity <= 0) {
       alert('This cycle is out of stock.');
       return;
     }
     
-    const existingItem = this.cartItems.find(item => item.cycle.id === cycle.id);
-    
-    if (existingItem) {
-      if (existingItem.quantity < cycle.stock) {
-        existingItem.quantity++;
-      } else {
-        alert('Cannot add more units. Maximum stock reached.');
-      }
+    // If customer has an active cart, add to the existing cart
+    if (this.activeCart) {
+      const payload = {
+        cycleId: cycle.cycleId,
+        quantity: 1
+      };
+      
+      this.http.post(`${this.apiUrl}/Cart/${this.activeCart.cartId}/items`, payload).subscribe({
+        next: () => {
+          // Reload cart after adding item
+          if (this.selectedCustomer) {
+            this.loadCustomerCart(this.selectedCustomer.customerId);
+          }
+        },
+        error: (error) => {
+          console.error('Error adding item to cart:', error);
+          alert('Failed to add item to cart. Please try again.');
+        }
+      });
     } else {
-      this.cartItems.push({ cycle, quantity: 1 });
+      // Create a new cart for the customer
+      this.http.post(`${this.apiUrl}/Cart`, { customerId: this.selectedCustomer.customerId }).subscribe({
+        next: (response: any) => {
+          this.activeCart = response as ExtendedCart;
+          
+          // Now add the item to the new cart
+          if (this.activeCart) {
+            const payload = {
+              cycleId: cycle.cycleId,
+              quantity: 1
+            };
+            
+            this.http.post(`${this.apiUrl}/Cart/${this.activeCart.cartId}/items`, payload).subscribe({
+              next: () => {
+                // Reload cart after adding item
+                if (this.selectedCustomer) {
+                  this.loadCustomerCart(this.selectedCustomer.customerId);
+                }
+              },
+              error: (error) => {
+                console.error('Error adding item to cart:', error);
+                alert('Failed to add item to cart. Please try again.');
+              }
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error creating cart:', error);
+          alert('Failed to create cart. Please try again.');
+        }
+      });
     }
   }
 
   // Update cart item quantity
-  updateQuantity(item: CartItem, change: number): void {
+  updateQuantity(item: ExtendedCartItem, change: number): void {
+    if (!this.activeCart) return;
+    
     const newQuantity = item.quantity + change;
     
     if (newQuantity <= 0) {
       this.removeFromCart(item);
-    } else if (newQuantity <= item.cycle.stock) {
-      item.quantity = newQuantity;
     } else {
-      alert('Cannot add more units. Maximum stock reached.');
+      // Find the cycle to check stock
+      const cycle = this.cycles.find(c => c.cycleId === item.cycleId);
+      if (cycle && newQuantity > cycle.stockQuantity) {
+        alert('Cannot add more units. Maximum stock reached.');
+        return;
+      }
+      
+      const payload = {
+        quantity: newQuantity
+      };
+      
+      this.http.put(`${this.apiUrl}/Cart/items/${item.cartItemId}`, payload).subscribe({
+        next: () => {
+          // Reload cart after updating item
+          if (this.selectedCustomer) {
+            this.loadCustomerCart(this.selectedCustomer.customerId);
+          }
+        },
+        error: (error) => {
+          console.error('Error updating item quantity:', error);
+          alert('Failed to update item quantity. Please try again.');
+        }
+      });
     }
   }
 
   // Remove item from cart
-  removeFromCart(item: CartItem): void {
-    this.cartItems = this.cartItems.filter(i => i.cycle.id !== item.cycle.id);
+  removeFromCart(item: ExtendedCartItem): void {
+    if (!this.activeCart) return;
+    
+    if (confirm('Are you sure you want to remove this item from the cart?')) {
+      this.http.delete(`${this.apiUrl}/Cart/items/${item.cartItemId}`).subscribe({
+        next: () => {
+          // Reload cart after removing item
+          if (this.selectedCustomer) {
+            this.loadCustomerCart(this.selectedCustomer.customerId);
+          }
+        },
+        error: (error) => {
+          console.error('Error removing item from cart:', error);
+          alert('Failed to remove item from cart. Please try again.');
+        }
+      });
+    }
   }
 
   // Calculate cart total (without tax and delivery fee)
   get cartTotal(): number {
-    return this.cartItems.reduce((sum, item) => sum + (item.cycle.price * item.quantity), 0);
+    if (this.activeCart) {
+      return this.activeCart.totalAmount;
+    }
+    return 0;
   }
 
   // Calculate subtotal
   calculateSubtotal(): number {
-    return this.cartItems.reduce((sum, item) => sum + (item.cycle.price * item.quantity), 0);
+    if (this.activeCart) {
+      return this.activeCart.totalAmount;
+    }
+    return 0;
   }
 
   // Calculate tax
   calculateTax(): number {
-    return Math.round(this.calculateSubtotal() * 0.18);
+    return this.calculateSubtotal() * 0.18;
   }
 
   // Calculate total including tax and delivery fee
   calculateTotal(): number {
-    let total = this.calculateSubtotal() + this.calculateTax();
+    const subtotal = this.calculateSubtotal();
+    const tax = this.calculateTax();
+    const delivery = this.customerDetailsForm.value.orderType === 'delivery' ? this.deliveryFee : 0;
     
-    if (this.customerDetailsForm.get('orderType')?.value === 'delivery') {
-      total += this.deliveryFee;
-    }
-    
-    return total;
+    return subtotal + tax + delivery;
   }
 
   // Select customer
-  selectCustomer(customer: Customer): void {
-    this.selectedCustomer = customer;
-    this.customerSearchTerm = customer.name;
+  selectCustomer(customer: any): void {
+    // Transform customer to match our extended interface
+    this.selectedCustomer = {
+      ...customer,
+      fullName: `${customer.firstName} ${customer.lastName}`,
+      hasActiveCart: customer.carts?.some((cart: any) => cart.isActive) ?? false
+    } as ExtendedCustomer;
     
-    // Pre-fill shipping address if available
-    if (customer.address) {
-      this.customerDetailsForm.patchValue({
-        shippingAddress: customer.address
-      });
-    }
+    this.customerSearchTerm = '';
+    this.customers = [];
+    
+    // Load customer cart regardless of hasActiveCart flag
+    // The API will return null if no active cart exists
+    this.loadCustomerCart(this.selectedCustomer.customerId);
+  }
+
+  // Load customer cart
+  loadCustomerCart(customerId: string): void {
+    console.log('Loading cart for customer:', customerId);
+    
+    // Use the correct endpoint format: /api/Customers/{id}/cart
+    this.http.get<any>(`${this.apiUrl}/Customers/${customerId}/cart`).subscribe({
+      next: (response) => {
+        console.log('Cart API response:', response);
+        
+        if (response && response.cartId) {
+          // Store the cartId from the API response
+          const cartId = response.cartId;
+          console.log('Found active cart with ID:', cartId);
+          
+          // Now fetch the detailed cart with items using the cartId
+          this.http.get<any>(`${this.apiUrl}/Cart/${cartId}`).subscribe({
+            next: (cartDetails) => {
+              console.log('Cart details response:', cartDetails);
+              
+              // Transform API cart data to match our extended interface
+              const transformedCart: ExtendedCart = {
+                ...cartDetails,
+                totalAmount: cartDetails.cartItems?.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0) || 0,
+                totalItems: cartDetails.cartItems?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
+                cartItems: cartDetails.cartItems?.map((item: any) => {
+                  console.log('Cart item cycle data:', item.cycle);
+                  return {
+                    ...item,
+                    cycleName: item.cycle?.modelName || 'Unknown Cycle',
+                    cycleBrand: item.cycle?.brand?.brandName || 'Unknown Brand',
+                    cycleType: item.cycle?.cycleType?.typeName || 'Unknown Type',
+                    cycleImage: item.cycle?.imageUrl
+                  };
+                }) || []
+              };
+              
+              console.log('Transformed cart:', transformedCart);
+              this.activeCart = transformedCart;
+              this.cartItems = transformedCart.cartItems;
+              
+              // Update customer's hasActiveCart status
+              if (this.selectedCustomer) {
+                this.selectedCustomer.hasActiveCart = true;
+              }
+            },
+            error: (cartError) => {
+              console.error('Error loading cart details:', cartError);
+              this.activeCart = null;
+              this.cartItems = [];
+            }
+          });
+        } else {
+          console.log('No active cart found for customer');
+          this.activeCart = null;
+          this.cartItems = [];
+          
+          // Update customer's hasActiveCart status
+          if (this.selectedCustomer) {
+            this.selectedCustomer.hasActiveCart = false;
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Error loading customer cart:', error);
+        console.error('Error details:', error.message, error.status);
+        this.activeCart = null;
+        this.cartItems = [];
+      }
+    });
   }
 
   // Clear selected customer
   clearCustomer(): void {
     this.selectedCustomer = null;
-    this.customerSearchTerm = '';
+    this.activeCart = null;
+    this.cartItems = [];
   }
 
   // Open checkout modal
   openCheckoutModal(): void {
-    if (this.cartItems.length === 0) {
+    if (!this.activeCart || this.cartItems.length === 0) {
       alert('Your cart is empty.');
       return;
     }
@@ -342,8 +514,8 @@ export class PosComponent implements OnInit {
     this.customerDetailsForm.reset({
       orderType: 'inStore',
       shippingAddress: this.selectedCustomer.address || '',
-      city: '',
-      pincode: '',
+      shippingCity: this.selectedCustomer.city || '',
+      shippingPostalCode: this.selectedCustomer.postalCode || '',
       deliveryInstructions: ''
     });
     
@@ -352,10 +524,6 @@ export class PosComponent implements OnInit {
 
   // Check if customer details are valid
   isCustomerDetailsValid(): boolean {
-    if (this.customerDetailsForm.get('orderType')?.value === 'inStore') {
-      return true;
-    }
-    
     return this.customerDetailsForm.valid;
   }
 
@@ -366,14 +534,8 @@ export class PosComponent implements OnInit {
 
   // Proceed to payment after customer details
   proceedToPayment(): void {
-    if (this.customerDetailsForm.get('orderType')?.value === 'delivery' && !this.customerDetailsForm.valid) {
-      // Mark all fields as touched to trigger validation messages
-      Object.keys(this.customerDetailsForm.controls).forEach(key => {
-        const control = this.customerDetailsForm.get(key);
-        control?.markAsTouched();
-      });
-      return;
-    }
+    this.showCustomerDetailsModal = false;
+    this.showPaymentModal = true;
     
     // Reset payment form
     this.paymentForm.reset({
@@ -383,9 +545,6 @@ export class PosComponent implements OnInit {
       cardExpiry: '',
       cardCvv: ''
     });
-    
-    this.closeCustomerDetailsModal();
-    this.showPaymentModal = true;
   }
 
   // Close payment modal
@@ -395,18 +554,7 @@ export class PosComponent implements OnInit {
 
   // Process payment
   processPayment(): void {
-    if (this.paymentForm.invalid) {
-      alert('Please fill all required fields.');
-      return;
-    }
-    
     const paymentMethod = this.paymentForm.value.paymentMethod;
-    
-    // Validation for payment methods
-    if (paymentMethod === 'cash' && !this.paymentForm.value.cashAmount) {
-      alert('Please enter cash amount.');
-      return;
-    }
     
     if (paymentMethod === 'razorpay') {
       this.initiateRazorpayPayment();
@@ -417,32 +565,32 @@ export class PosComponent implements OnInit {
 
   // Process offline payment (cash)
   processOfflinePayment(): void {
-    const cashAmount = +this.paymentForm.value.cashAmount;
+    const paymentMethod = this.paymentForm.value.paymentMethod;
     
-    if (cashAmount < this.calculateTotal()) {
-      alert('Cash amount is less than the total amount.');
-      return;
+    if (paymentMethod === 'cash' && this.paymentForm.value.cashAmount) {
+      const cashAmount = parseFloat(this.paymentForm.value.cashAmount);
+      const totalAmount = this.calculateTotal();
+      
+      if (cashAmount < totalAmount) {
+        alert('Cash amount is less than the total amount.');
+        return;
+      }
     }
     
-    this.createOrder('Cash');
+    // Create order with offline payment
+    this.createOrder(paymentMethod);
   }
 
   // Initiate Razorpay payment
   initiateRazorpayPayment(): void {
     const options = {
-      key: 'rzp_test_ZZl8KM6xVpzuNp', // Replace with your Razorpay Key ID
-      amount: this.calculateTotal() * 100, // Amount in paise
+      key: 'rzp_test_key',
+      amount: this.calculateTotal() * 100, // in paise
       currency: 'INR',
       name: 'Cycle Enterprise',
-      description: 'Payment for cycles purchase',
-      image: 'https://example.com/your_logo.png', // Replace with your logo URL
-      prefill: {
-        name: this.selectedCustomer?.name,
-        email: this.selectedCustomer?.email,
-        contact: this.selectedCustomer?.phone
-      },
+      description: 'Purchase of Cycles',
+      image: 'assets/images/logo.png',
       handler: (response: any) => {
-        // This function is called when payment is successful
         console.log('Payment success:', response);
         this.createOrder('Razorpay', response.razorpay_payment_id);
       },
@@ -463,63 +611,118 @@ export class PosComponent implements OnInit {
 
   // Create order after successful payment
   createOrder(paymentMethod: string, paymentId?: string): void {
-    const orderId = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+    if (!this.activeCart || !this.selectedCustomer) return;
     
-    // Prepare shipping address
-    let shippingAddress = undefined;
-    if (this.customerDetailsForm.value.orderType === 'delivery') {
-      shippingAddress = `${this.customerDetailsForm.value.shippingAddress}, ${this.customerDetailsForm.value.city}, ${this.customerDetailsForm.value.pincode}`;
-      if (this.customerDetailsForm.value.deliveryInstructions) {
-        shippingAddress += ` (${this.customerDetailsForm.value.deliveryInstructions})`;
-      }
-    }
-    
-    // Create new order
-    const newOrder: Order = {
-      id: orderId,
-      customerId: this.selectedCustomer!.id,
-      customerName: this.selectedCustomer!.name,
-      items: [...this.cartItems],
-      total: this.calculateTotal(),
-      date: new Date().toISOString().split('T')[0],
-      paymentMethod: paymentMethod,
-      status: paymentMethod === 'Razorpay' ? 'processing' : 'completed',
-      shippingAddress: shippingAddress,
-      orderType: this.customerDetailsForm.value.orderType,
-      paymentId: paymentId,
-      deliveryFee: this.customerDetailsForm.value.orderType === 'delivery' ? this.deliveryFee : undefined
+    // Create order payload
+    const orderCreate: OrderCreate = {
+      customerId: this.selectedCustomer.customerId,
+      status: paymentMethod === 'razorpay' ? OrderStatus.PROCESSING : OrderStatus.PENDING,
+      totalAmount: this.calculateTotal(),
+      shippingAddress: this.customerDetailsForm.value.shippingAddress || '',
+      shippingCity: this.customerDetailsForm.value.shippingCity || '',
+      shippingState: this.customerDetailsForm.value.shippingState || '',
+      shippingPostalCode: this.customerDetailsForm.value.shippingPostalCode || '',
+      notes: this.customerDetailsForm.value.deliveryInstructions || '',
+      orderItems: this.cartItems.map(item => ({
+        cycleId: item.cycleId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice
+      }))
     };
     
-    // Update stock
-    this.cartItems.forEach(item => {
-      const cycle = this.cycles.find(c => c.id === item.cycle.id);
-      if (cycle) {
-        cycle.stock -= item.quantity;
+    // Create the order via API
+    this.http.post<IOrder>(`${this.apiUrl}/Order`, orderCreate).subscribe({
+      next: (createdOrder) => {
+        // If payment was via Razorpay, create the payment record
+        if (paymentMethod === 'razorpay' && paymentId) {
+          const paymentCreate = {
+            orderId: createdOrder.orderId,
+            razorpayOrderId: 'order_' + Date.now(), // This would normally come from Razorpay
+            razorpayPaymentId: paymentId,
+            razorpaySignature: '',  // This would normally come from Razorpay
+            amount: this.calculateTotal(),
+            currency: 'INR',
+            status: PaymentStatus.SUCCESS
+          };
+          
+          this.http.post(`${this.apiUrl}/Payment`, paymentCreate).subscribe({
+            next: () => console.log('Payment record created'),
+            error: (error) => console.error('Failed to create payment record:', error)
+          });
+        }
+        
+        // Close modal and show success
+        this.closePaymentModal();
+        
+        // Update local data
+        this.loadRecentOrders();
+        
+        // Clear cart after order
+        if (this.activeCart) {
+          this.http.delete(`${this.apiUrl}/Cart/${this.activeCart.cartId}`).subscribe({
+            next: () => {
+              // Clear local cart data
+              this.activeCart = null;
+              this.cartItems = [];
+              
+              // Update customer's hasActiveCart status
+              if (this.selectedCustomer) {
+                this.selectedCustomer.hasActiveCart = false;
+              }
+              
+              // Update stock by creating stock movement
+              this.cartItems.forEach(item => {
+                const stockMovementPayload = {
+                  cycleId: item.cycleId,
+                  quantity: item.quantity,
+                  movementType: 1, // StockOut
+                  userId: 'system', // Should be replaced with actual logged in user ID
+                  notes: `Order: ${createdOrder.orderNumber}`
+                };
+                
+                this.http.post(`${this.apiUrl}/Stock/movements`, stockMovementPayload).subscribe({
+                  next: () => console.log(`Stock updated for cycle ${item.cycleId}`),
+                  error: (error) => console.error('Failed to update stock:', error)
+                });
+              });
+              
+              // Show success message
+              alert(`Order ${createdOrder.orderNumber} has been successfully processed!`);
+            },
+            error: (error) => {
+              console.error('Error clearing cart:', error);
+              alert('Order was created but failed to clear cart. Please check the system.');
+            }
+          });
+        }
+      },
+      error: (error) => {
+        console.error('Failed to create order:', error);
+        alert('Failed to process order. Please try again.');
       }
     });
-    
-    // Add to recent orders
-    this.recentOrders.unshift(newOrder);
-    
-    // Add to customer's purchase history
-    if (this.selectedCustomer) {
-      this.selectedCustomer.purchaseHistory.push(newOrder);
-    }
-    
-    // Close modal and show success
-    this.closePaymentModal();
-    
-    // Empty cart
-    this.cartItems = [];
-    
-    // Show success message
-    alert(`Order ${orderId} has been successfully processed!`);
   }
 
   // Clear cart
   clearCart(): void {
+    if (!this.activeCart) return;
+    
     if (confirm('Are you sure you want to clear the cart?')) {
-      this.cartItems = [];
+      this.http.delete(`${this.apiUrl}/Cart/${this.activeCart.cartId}`).subscribe({
+        next: () => {
+          this.activeCart = null;
+          this.cartItems = [];
+          
+          // Update customer's hasActiveCart status
+          if (this.selectedCustomer) {
+            this.selectedCustomer.hasActiveCart = false;
+          }
+        },
+        error: (error) => {
+          console.error('Error clearing cart:', error);
+          alert('Failed to clear cart. Please try again.');
+        }
+      });
     }
   }
 }

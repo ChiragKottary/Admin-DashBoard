@@ -41,7 +41,7 @@
           <div class="content-card">
             <div class="card-header">
               <h3>Cycles</h3>
-              <button class="btn btn-primary" (click)="resetForms()">
+              <button class="btn btn-primary" (click)="scrollToForm('cycle')">
                 <i class="bi bi-plus-circle"></i> New Cycle
               </button>
             </div>
@@ -73,14 +73,14 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let cycle of cycles">
-                    <td>{{ cycle.id }}</td>
-                    <td>{{ cycle.name }}</td>
+                  <tr *ngFor="let cycle of displayCycles">
+                    <td>{{ cycle.cycleId }}</td>
+                    <td>{{ cycle.modelName }}</td>
                     <td>{{ cycle.category }}</td>
                     <td>{{ cycle.brand }}</td>
                     <td>₹{{ cycle.price }}</td>
                     <td>
-                      <span [class.low-stock]="cycle.stock < 5">{{ cycle.stock }}</span>
+                      <span [class.low-stock]="cycle.stockQuantity < 5">{{ cycle.stockQuantity }}</span>
                     </td>
                     <td>
                       <button class="btn btn-sm btn-outline-primary me-1" (click)="editCycle(cycle)">
@@ -91,53 +91,130 @@
                       </button>
                     </td>
                   </tr>
+                  <tr *ngIf="displayCycles.length === 0">
+                    <td colspan="7" class="text-center p-4">
+                      <div class="flex flex-col items-center">
+                        <i class="bi bi-inbox text-4xl mb-2"></i>
+                        <p>No cycles found</p>
+                      </div>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div class="pagination-controls">
+              <div class="page-size-selector">
+                <label for="pageSize">Items per page:</label>
+                <select #pageSize id="pageSize" (change)="updatePageSize(pageSize.value)">
+                  <option [value]="10">10</option>
+                  <option [value]="25">25</option>
+                  <option [value]="50">50</option>
+                  <option [value]="100">100</option>
+                </select>
+              </div>
+
+              <div class="pagination-buttons">
+                <button 
+                  [disabled]="!hasPrevCyclesPages" 
+                  (click)="goToFirstPage()" 
+                  class="pagination-btn">
+                  &laquo;
+                </button>
+                <button 
+                  [disabled]="!hasPrevCyclesPages" 
+                  (click)="goToPreviousPage()" 
+                  class="pagination-btn">
+                  &lsaquo;
+                </button>
+
+                <button 
+                  *ngFor="let page of getPageNumbers()" 
+                  [class.active]="page === cyclesPage"
+                  (click)="changeCyclesPage(page)" 
+                  class="pagination-btn">
+                  {{ page }}
+                </button>
+
+                <button 
+                  [disabled]="!hasMoreCyclesPages" 
+                  (click)="goToNextPage()" 
+                  class="pagination-btn">
+                  &rsaquo;
+                </button>
+                <button 
+                  [disabled]="!hasMoreCyclesPages" 
+                  (click)="goToLastPage()" 
+                  class="pagination-btn">
+                  &raquo;
+                </button>
+              </div>
+
+              <div class="pagination-info">
+                Page {{ cyclesPage }} of {{ cyclesTotalPages }}
+                ({{ cyclesTotal }} items)
+              </div>
             </div>
           </div>
         </div>
         
         <!-- Cycle Form -->
         <div class="col-lg-4">
-          <div class="content-card">
+          <div class="content-card" #cycleFormSection>
             <div class="card-header">
               <h3>{{ selectedCycle ? 'Edit Cycle' : 'Add New Cycle' }}</h3>
             </div>
             <form [formGroup]="cycleForm" class="form">
               <div class="form-group">
-                <label for="name">Cycle Name</label>
-                <input type="text" id="name" formControlName="name" class="form-control" placeholder="Enter cycle name">
+                <label for="modelName">Cycle Name</label>
+                <input type="text" id="modelName" formControlName="modelName" class="form-control" placeholder="Enter cycle name">
               </div>
               
               <div class="form-group">
-                <label for="category">Category</label>
-                <select id="category" formControlName="category" class="form-control">
+                <label for="typeId">Category</label>
+                <select id="typeId" formControlName="typeId" class="form-control">
                   <option value="">Select Category</option>
-                  <option *ngFor="let category of cycleTypes" [value]="category.typeName">{{ category.typeName }}</option>
+                  <option *ngFor="let category of displayCycleTypes" [value]="category.typeId">{{ category.typeName }}</option>
                 </select>
               </div>
               
               <div class="form-group">
-                <label for="brand">Brand</label>
-                <select id="brand" formControlName="brand" class="form-control">
+                <label for="brandId">Brand</label>
+                <select id="brandId" formControlName="brandId" class="form-control">
                   <option value="">Select Brand</option>
-                  <option *ngFor="let brand of brands" [value]="brand.name">{{ brand.name }}</option>
+                  <option *ngFor="let brand of brands" [value]="brand.brandId">{{ brand.brandName }}</option>
                 </select>
               </div>
               
               <div class="form-group">
-                <label for="price">Price (₹)</label>
-                <input type="number" id="price" formControlName="price" class="form-control" placeholder="Enter price">
+                <label for="price">Sale Price (₹)</label>
+                <input type="number" id="price" formControlName="price" class="form-control" placeholder="Enter sale price">
               </div>
               
               <div class="form-group">
-                <label for="stock">Initial Stock</label>
-                <input type="number" id="stock" formControlName="stock" class="form-control" placeholder="Enter stock quantity">
+                <label for="costPrice">Cost Price (₹)</label>
+                <input type="number" id="costPrice" formControlName="costPrice" class="form-control" placeholder="Enter cost price">
               </div>
               
               <div class="form-group">
-                <label for="image">Image URL (Optional)</label>
-                <input type="text" id="image" formControlName="image" class="form-control" placeholder="Enter image URL">
+                <label for="stockQuantity">Initial Stock</label>
+                <input type="number" id="stockQuantity" formControlName="stockQuantity" class="form-control" placeholder="Enter stock quantity">
+              </div>
+              
+              <div class="form-group">
+                <label for="reorderLevel">Reorder Level</label>
+                <input type="number" id="reorderLevel" formControlName="reorderLevel" class="form-control" placeholder="Enter reorder level">
+              </div>
+              
+              <div class="form-group">
+                <label for="imageUrl">Image URL (Optional)</label>
+                <input type="text" id="imageUrl" formControlName="imageUrl" class="form-control" placeholder="Enter image URL">
+              </div>
+              
+              <div class="form-group">
+                <label for="warrantyMonths">Warranty (Months)</label>
+                <input type="number" id="warrantyMonths" formControlName="warrantyMonths" class="form-control" placeholder="Enter warranty period in months">
               </div>
               
               <div class="form-group">
@@ -176,7 +253,7 @@
           <div class="content-card">
             <div class="card-header">
               <h3>Categories</h3>
-              <button class="btn btn-primary" (click)="resetForms()">
+              <button class="btn btn-primary" (click)="scrollToForm('category')">
                 <i class="bi bi-plus-circle"></i> New Category
               </button>
             </div>
@@ -206,7 +283,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let cycleType of cycleTypes">
+                  <tr *ngFor="let cycleType of displayCycleTypes">
                     <td>{{ cycleType.typeId.slice(-6) }}</td>
                     <td>{{ cycleType.typeName }}</td>
                     <td>{{ cycleType.description | slice:0:50 }}{{ cycleType.description.length > 50 ? '...' : '' }}</td>
@@ -220,13 +297,70 @@
                       </button>
                     </td>
                   </tr>
+                  <!-- Empty State -->
+                  <tr *ngIf="displayCycleTypes.length === 0">
+                    <td colspan="5" class="text-center p-4">
+                      <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                      <p class="mt-2">No categories found. Add your first category.</p>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
               
-              <!-- Empty State -->
-              <div *ngIf="cycleTypes.length === 0" class="text-center p-4">
-                <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
-                <p class="mt-2">No categories found. Add your first category.</p>
+              <!-- Pagination for Categories -->
+              <div class="pagination-controls" *ngIf="displayCycleTypes.length > 0">
+                <div class="pagination-info">
+                  Showing {{ (cycleTypesPage - 1) * cycleTypesPageSize + 1 }} to 
+                  {{ Math.min(cycleTypesPage * cycleTypesPageSize, cycleTypesTotal) }} 
+                  of {{ cycleTypesTotal }} entries
+                </div>
+
+                <div class="page-size-selector">
+                  Show
+                  <select #categoryPageSize (change)="updateCycleTypesPageSize(categoryPageSize.value)" [value]="cycleTypesPageSize">
+                    <option [value]="7">7</option>
+                    <option [value]="10">10</option>
+                    <option [value]="25">25</option>
+                  </select>
+                </div>
+
+                <div class="pagination-buttons">
+                  <button 
+                    [disabled]="cycleTypesPage === 1" 
+                    (click)="changeCycleTypesPage(1)" 
+                    class="pagination-btn">
+                    «
+                  </button>
+                  
+                  <button 
+                    [disabled]="cycleTypesPage === 1" 
+                    (click)="changeCycleTypesPage(cycleTypesPage - 1)" 
+                    class="pagination-btn">
+                    ‹
+                  </button>
+
+                  <button 
+                    *ngFor="let page of getCycleTypesPageNumbers()" 
+                    [class.active]="page === cycleTypesPage" 
+                    (click)="changeCycleTypesPage(page)" 
+                    class="pagination-btn">
+                    {{ page }}
+                  </button>
+
+                  <button 
+                    [disabled]="cycleTypesPage * cycleTypesPageSize >= cycleTypesTotal" 
+                    (click)="changeCycleTypesPage(cycleTypesPage + 1)" 
+                    class="pagination-btn">
+                    ›
+                  </button>
+                  
+                  <button 
+                    [disabled]="cycleTypesPage === getCycleTypesTotalPages()" 
+                    (click)="changeCycleTypesPage(getCycleTypesTotalPages())" 
+                    class="pagination-btn">
+                    »
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -234,7 +368,7 @@
         
         <!-- Category Form -->
         <div class="col-lg-4">
-          <div class="content-card">
+          <div class="content-card" #categoryFormSection>
             <div class="card-header">
               <h3>{{ selectedCycleType ? 'Edit Category' : 'Add New Category' }}</h3>
             </div>
@@ -280,7 +414,7 @@
           <div class="content-card">
             <div class="card-header">
               <h3>Brands</h3>
-              <button class="btn btn-primary" (click)="resetForms()">
+              <button class="btn btn-primary" (click)="scrollToForm('brand')">
                 <i class="bi bi-plus-circle"></i> New Brand
               </button>
             </div>
@@ -300,13 +434,15 @@
                   <tr>
                     <th>ID</th>
                     <th>Name</th>
+                    <th>Description</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let brand of brands">
-                    <td>{{ brand.id }}</td>
-                    <td>{{ brand.name }}</td>
+                  <tr *ngFor="let brand of displayBrands">
+                    <td>{{ brand.brandId.slice(-6) }}</td>
+                    <td>{{ brand.brandName }}</td>
+                    <td>{{ brand.description ? (brand.description | slice:0:50) + (brand.description.length > 50 ? '...' : '') : '' }}</td>
                     <td>
                       <button class="btn btn-sm btn-outline-primary me-1" (click)="editBrand(brand)">
                         <i class="bi bi-pencil"></i>
@@ -316,22 +452,90 @@
                       </button>
                     </td>
                   </tr>
+                  <!-- Empty State -->
+                  <tr *ngIf="displayBrands.length === 0">
+                    <td colspan="4" class="text-center p-4">
+                      <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                      <p class="mt-2">No brands found. Add your first brand.</p>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
+              
+              <!-- Pagination for Brands -->
+              <div class="pagination-controls" *ngIf="displayBrands.length > 0">
+                <div class="pagination-info">
+                  Showing {{ (brandsPage - 1) * brandsPageSize + 1 }} to 
+                  {{ Math.min(brandsPage * brandsPageSize, brandsTotal) }} 
+                  of {{ brandsTotal }} entries
+                </div>
+
+                <div class="page-size-selector">
+                  Show
+                  <select #brandPageSize (change)="updateBrandsPageSize(brandPageSize.value)" [value]="brandsPageSize">
+                    <option [value]="7">7</option>
+                    <option [value]="10">10</option>
+                    <option [value]="25">25</option>
+                  </select>
+                </div>
+
+                <div class="pagination-buttons">
+                  <button 
+                    [disabled]="brandsPage === 1" 
+                    (click)="changeBrandsPage(1)" 
+                    class="pagination-btn">
+                    «
+                  </button>
+                  
+                  <button 
+                    [disabled]="brandsPage === 1" 
+                    (click)="changeBrandsPage(brandsPage - 1)" 
+                    class="pagination-btn">
+                    ‹
+                  </button>
+
+                  <button 
+                    *ngFor="let page of getBrandsPageNumbers()" 
+                    [class.active]="page === brandsPage" 
+                    (click)="changeBrandsPage(page)" 
+                    class="pagination-btn">
+                    {{ page }}
+                  </button>
+
+                  <button 
+                    [disabled]="brandsPage * brandsPageSize >= brandsTotal" 
+                    (click)="changeBrandsPage(brandsPage + 1)" 
+                    class="pagination-btn">
+                    ›
+                  </button>
+                  
+                  <button 
+                    [disabled]="brandsPage === getBrandsTotalPages()" 
+                    (click)="changeBrandsPage(getBrandsTotalPages())" 
+                    class="pagination-btn">
+                    »
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
         <!-- Brand Form -->
         <div class="col-lg-4">
-          <div class="content-card">
+          <div class="content-card" #brandFormSection>
             <div class="card-header">
               <h3>{{ selectedBrand ? 'Edit Brand' : 'Add New Brand' }}</h3>
             </div>
             <form [formGroup]="brandForm" class="form">
               <div class="form-group">
                 <label for="brandName">Brand Name</label>
-                <input type="text" id="brandName" formControlName="name" class="form-control" placeholder="Enter brand name">
+                <input type="text" id="brandName" formControlName="brandName" class="form-control" placeholder="Enter brand name">
+              </div>
+              
+              <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" formControlName="description" class="form-control" rows="3" placeholder="Enter brand description"></textarea>
               </div>
               
               <div class="form-group">
@@ -359,7 +563,11 @@
           <div class="content-card">
             <div class="card-header">
               <h3>Stock Movements</h3>
+              <button class="btn btn-primary" (click)="scrollToForm('stock')">
+                <i class="bi bi-plus-circle"></i> New Stock Movement
+              </button>
             </div>
+            
             <!-- Loading Spinner -->
             <div *ngIf="isLoadingStockMovements" class="skeleton-loader">
               <div class="skeleton-header"></div>
@@ -367,13 +575,14 @@
                 <div class="skeleton-cell skeleton-id"></div>
                 <div class="skeleton-cell skeleton-date"></div>
                 <div class="skeleton-cell skeleton-name"></div>
-                <div class="skeleton-cell skeleton-badge"></div>
+                <div class="skeleton-cell skeleton-type"></div>
                 <div class="skeleton-cell skeleton-quantity"></div>
                 <div class="skeleton-cell skeleton-notes"></div>
                 <div class="skeleton-cell skeleton-actions"></div>
               </div>
             </div>
             
+            <!-- Data Table -->
             <div class="table-responsive" *ngIf="!isLoadingStockMovements" [@fadeInOut]>
               <table class="table">
                 <thead>
@@ -388,13 +597,20 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let movement of stockMovements">
-                    <td>{{ movement.id }}</td>
-                    <td>{{ movement.date | date }}</td>
-                    <td>{{ movement.cycleName }}</td>
+                  <tr *ngFor="let movement of displayStockMovements">
+                    <td>{{ movement.movementId.slice(-6) }}</td>
+                    <td>{{ movement.movementDate | date }}</td>
+                    <td>{{ movement.cycle?.modelName }}</td>
                     <td>
-                      <span class="stock-badge" [class]="movement.type">
-                        {{ movement.type === 'in' ? 'Stock In' : 'Stock Out' }}
+                      <span class="badge" [ngClass]="{
+                        'bg-success': movement.movementType === 0,
+                        'bg-danger': movement.movementType === 1,
+                        'bg-primary': movement.movementType === 2,
+                        'bg-warning': movement.movementType === 3,
+                        'bg-info': movement.movementType === 4,
+                        'bg-secondary': movement.movementType === 5
+                      }">
+                        {{ getMovementTypeLabel(movement.movementType) }}
                       </span>
                     </td>
                     <td>{{ movement.quantity }}</td>
@@ -405,52 +621,109 @@
                       </button>
                     </td>
                   </tr>
+                  <!-- Empty State -->
+                  <tr *ngIf="displayStockMovements.length === 0">
+                    <td colspan="7" class="text-center p-4">
+                      <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                      <p class="mt-2">No stock movements found. Add your first stock movement.</p>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
+              
+              <!-- Pagination -->
+              <div class="pagination-controls" *ngIf="displayStockMovements.length > 0">
+                <div class="pagination-info">
+                  Showing {{ (stockMovementsPage - 1) * stockMovementsPageSize + 1 }} to 
+                  {{ Math.min(stockMovementsPage * stockMovementsPageSize, stockMovementsTotal) }} 
+                  of {{ stockMovementsTotal }} entries
+                </div>
+                
+                <div class="page-size-selector">
+                  Show
+                  <select #stockPageSize (change)="updateStockMovementsPageSize(stockPageSize.value)" [value]="stockMovementsPageSize">
+                    <option [value]="7">7</option>
+                    <option [value]="10">10</option>
+                    <option [value]="25">25</option>
+                  </select>
+                  entries
+                </div>
+                
+                <div class="pagination-buttons">
+                  <button [disabled]="stockMovementsPage === 1" (click)="changeStockMovementsPage(1)" class="pagination-btn">
+                    «
+                  </button>
+                  <button [disabled]="stockMovementsPage === 1" (click)="changeStockMovementsPage(stockMovementsPage - 1)" class="pagination-btn">
+                    ‹
+                  </button>
+                  <button 
+                    *ngFor="let page of getStockMovementsPageNumbers()" 
+                    [class.active]="page === stockMovementsPage" 
+                    (click)="changeStockMovementsPage(page)" 
+                    class="pagination-btn">
+                    {{ page }}
+                  </button>
+                  <button 
+                    [disabled]="stockMovementsPage * stockMovementsPageSize >= stockMovementsTotal" 
+                    (click)="changeStockMovementsPage(stockMovementsPage + 1)" 
+                    class="pagination-btn">
+                    ›
+                  </button>
+                  <button 
+                    [disabled]="stockMovementsPage === getStockMovementsTotalPages()" 
+                    (click)="changeStockMovementsPage(getStockMovementsTotalPages())" 
+                    class="pagination-btn">
+                    »
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
-        <!-- Stock Movement Form -->
+        <!-- Add Stock Movement Form -->
         <div class="col-lg-4">
-          <div class="content-card">
+          <div class="content-card" #stockFormSection>
             <div class="card-header">
               <h3>Add Stock Movement</h3>
             </div>
-            <form [formGroup]="stockMovementForm" class="form">
+            <form [formGroup]="stockMovementForm" (ngSubmit)="addStockMovement()" class="form">
               <div class="form-group">
-                <label for="cycleId">Cycle</label>
-                <select id="cycleId" formControlName="cycleId" class="form-control">
-                  <option value="">Select Cycle</option>
-                  <option *ngFor="let cycle of cycles" [value]="cycle.id">{{ cycle.name }} (Current Stock: {{ cycle.stock }})</option>
+                <label for="cycleSelect">Select Cycle</label>
+                <select id="cycleSelect" class="form-control" formControlName="cycleId">
+                  <option value="">-- Select Cycle --</option>
+                  <option *ngFor="let cycle of allCyclesForStock" [value]="cycle.cycleId">
+                    {{ cycle.modelName }} (Stock: {{ cycle.stockQuantity }})
+                  </option>
                 </select>
+                <div *ngIf="stockMovementForm.get('cycleId')?.invalid && stockMovementForm.get('cycleId')?.touched" class="text-danger">
+                  Cycle is required
+                </div>
               </div>
               
               <div class="form-group">
-                <label for="type">Movement Type</label>
-                <select id="type" formControlName="type" class="form-control">
-                  <option value="in">Stock In</option>
-                  <option value="out">Stock Out</option>
+                <label for="movementType">Movement Type</label>
+                <select id="movementType" class="form-control" formControlName="movementType">
+                  <option value="0">Stock In</option>
+                  <option value="1">Stock Out</option>
                 </select>
               </div>
               
               <div class="form-group">
                 <label for="quantity">Quantity</label>
-                <input type="number" id="quantity" formControlName="quantity" class="form-control" placeholder="Enter quantity">
-              </div>
-              
-              <div class="form-group">
-                <label for="date">Date</label>
-                <input type="date" id="date" formControlName="date" class="form-control">
+                <input type="number" id="quantity" class="form-control" formControlName="quantity" min="1">
+                <div *ngIf="stockMovementForm.get('quantity')?.invalid && stockMovementForm.get('quantity')?.touched" class="text-danger">
+                  Quantity is required and must be at least 1
+                </div>
               </div>
               
               <div class="form-group">
                 <label for="notes">Notes (Optional)</label>
-                <textarea id="notes" formControlName="notes" class="form-control" rows="2" placeholder="Enter notes"></textarea>
+                <textarea id="notes" class="form-control" formControlName="notes" rows="2" placeholder="Enter notes"></textarea>
               </div>
               
               <div class="form-group">
-                <button type="button" [disabled]="stockMovementForm.invalid" class="btn btn-primary" (click)="addStockMovement()">
+                <button type="submit" [disabled]="stockMovementForm.invalid" class="btn btn-primary">
                   <i class="bi bi-plus-circle"></i> Add Movement
                 </button>
                 <button type="button" class="btn btn-secondary ms-2" (click)="resetForms()">

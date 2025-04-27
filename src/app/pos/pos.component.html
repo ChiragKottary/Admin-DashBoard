@@ -27,21 +27,24 @@
       <div class="content-card">
         <div class="card-header">
           <h3>Available Cycles</h3>
+          <div *ngIf="!selectedCustomer" class="alert alert-warning mb-0">
+            <i class="bi bi-exclamation-triangle"></i> Please select a customer first to add items to cart.
+          </div>
         </div>
         <div class="cycles-grid">
-          <div *ngFor="let cycle of filteredCycles" class="cycle-item" [class.out-of-stock]="cycle.stock <= 0">
+          <div *ngFor="let cycle of filteredCycles" class="cycle-item" [class.out-of-stock]="cycle.stockQuantity <= 0" [class.disabled]="!selectedCustomer">
             <div class="cycle-image">
-              <img [src]="cycle.image || 'assets/images/cycle-placeholder.jpg'" alt="{{ cycle.name }}">
-              <span class="stock-badge" [class.low]="cycle.stock > 0 && cycle.stock < 5" [class.out]="cycle.stock <= 0">
-                {{ cycle.stock > 0 ? 'In Stock: ' + cycle.stock : 'Out of Stock' }}
+              <img [src]="cycle.imageUrl || 'assets/images/cycle-placeholder.jpg'" alt="{{ cycle.modelName }}">
+              <span class="stock-badge" [class.low]="cycle.stockQuantity > 0 && cycle.stockQuantity < 5" [class.out]="cycle.stockQuantity <= 0">
+                {{ cycle.stockQuantity > 0 ? 'In Stock: ' + cycle.stockQuantity : 'Out of Stock' }}
               </span>
             </div>
             <div class="cycle-details">
-              <h4>{{ cycle.name }}</h4>
-              <p class="category">{{ cycle.category }} | {{ cycle.brand }}</p>
+              <h4>{{ cycle.modelName }}</h4>
+              <p class="category">{{ cycle.cycleType?.typeName }} | {{ cycle.brand?.brandName }}</p>
               <div class="price-action">
-                <p class="price">₹{{ cycle.price }}</p>
-                <button class="btn btn-primary" [disabled]="cycle.stock <= 0" (click)="addToCart(cycle)">
+                <p class="price">₹{{ cycle.price | number:'1.0-2' }}</p>
+                <button class="btn btn-primary" [disabled]="cycle.stockQuantity <= 0 || !selectedCustomer" (click)="addToCart(cycle)">
                   <i class="bi bi-cart-plus"></i>
                 </button>
               </div>
@@ -63,15 +66,21 @@
         </div>
         <div class="customer-search">
           <div class="search-container">
-            <input type="text" [(ngModel)]="customerSearchTerm" placeholder="Search customers..." class="form-control">
+            <input 
+              type="text" 
+              [(ngModel)]="customerSearchTerm" 
+              (input)="searchCustomers()"
+              placeholder="Search customers by name, phone, or email..." 
+              class="form-control">
             <i class="bi bi-search"></i>
           </div>
           
           <div class="customer-results" *ngIf="filteredCustomers.length > 0 && !selectedCustomer">
             <div *ngFor="let customer of filteredCustomers" class="customer-item" (click)="selectCustomer(customer)">
               <div class="customer-info">
-                <h4>{{ customer.name }}</h4>
+                <h4>{{ customer.fullName }}</h4>
                 <p>{{ customer.phone }} | {{ customer.email }}</p>
+                <span *ngIf="customer.hasActiveCart" class="badge bg-info text-white">Has Active Cart</span>
               </div>
             </div>
           </div>
@@ -79,7 +88,7 @@
           <div class="selected-customer" *ngIf="selectedCustomer">
             <div class="customer-card">
               <div class="customer-info">
-                <h4>{{ selectedCustomer.name }}</h4>
+                <h4>{{ selectedCustomer.fullName }}</h4>
                 <p><i class="bi bi-envelope"></i> {{ selectedCustomer.email }}</p>
                 <p><i class="bi bi-telephone"></i> {{ selectedCustomer.phone }}</p>
                 <p *ngIf="selectedCustomer.address"><i class="bi bi-geo-alt"></i> {{ selectedCustomer.address }}</p>
@@ -103,14 +112,14 @@
         <div class="cart-items">
           <div *ngFor="let item of cartItems" class="cart-item">
             <div class="item-details">
-              <h4>{{ item.cycle.name }}</h4>
-              <p class="item-price">₹{{ item.cycle.price }} x {{ item.quantity }}</p>
+              <h4>{{ item.cycleName }}</h4>
+              <p class="item-price">₹{{ item.unitPrice | number:'1.0-2' }} x {{ item.quantity }}</p>
             </div>
             <div class="item-actions">
               <div class="quantity-controls">
                 <button class="btn btn-sm btn-outline-secondary" (click)="updateQuantity(item, -1)">-</button>
                 <span class="quantity">{{ item.quantity }}</span>
-                <button class="btn btn-sm btn-outline-secondary" [disabled]="item.quantity >= item.cycle.stock" (click)="updateQuantity(item, 1)">+</button>
+                <button class="btn btn-sm btn-outline-secondary" (click)="updateQuantity(item, 1)">+</button>
               </div>
               <button class="btn btn-sm btn-outline-danger" (click)="removeFromCart(item)">
                 <i class="bi bi-trash"></i>
@@ -130,7 +139,7 @@
           </div>
           <div class="summary-row total">
             <span>Total Amount:</span>
-            <span>₹{{ cartTotal }}</span>
+            <span>₹{{ cartTotal | number:'1.0-2' }}</span>
           </div>
           <button class="btn btn-success checkout-btn" [disabled]="cartItems.length === 0 || !selectedCustomer" (click)="openCheckoutModal()">
             <i class="bi bi-credit-card"></i> Checkout
@@ -167,46 +176,52 @@
           </div>
 
           <!-- Customer Info -->
-          <div class="customer-info mb-4">
+          <div class="customer-info bg-gray-50 p-4 rounded mb-4">
             <h4 class="text-gray-700 font-medium mb-2">Customer Information</h4>
-            <div class="bg-gray-50 p-4 rounded mb-4">
-              <div class="text-sm"><span class="font-semibold">Name:</span> {{ selectedCustomer?.name }}</div>
-              <div class="text-sm"><span class="font-semibold">Email:</span> {{ selectedCustomer?.email }}</div>
-              <div class="text-sm"><span class="font-semibold">Phone:</span> {{ selectedCustomer?.phone }}</div>
-              <div class="text-sm" *ngIf="selectedCustomer?.address"><span class="font-semibold">Address:</span> {{ selectedCustomer?.address }}</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <p class="text-sm"><strong>Name:</strong> {{ selectedCustomer?.fullName }}</p>
+                <p class="text-sm"><strong>Email:</strong> {{ selectedCustomer?.email }}</p>
+              </div>
+              <div>
+                <p class="text-sm"><strong>Phone:</strong> {{ selectedCustomer?.phone }}</p>
+                <p class="text-sm" *ngIf="selectedCustomer?.address"><strong>Address:</strong> {{ selectedCustomer?.address }}</p>
+              </div>
             </div>
           </div>
 
-          <!-- Shipping Address (only visible if delivery is selected) -->
+          <!-- Delivery Details (Conditional) -->
           <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="delivery-details">
-            <h4 class="text-gray-700 font-medium mb-2">Shipping Details</h4>
-            <div class="form-group mb-3">
-              <label for="shippingAddress" class="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
-              <textarea id="shippingAddress" formControlName="shippingAddress" class="form-control" rows="3" placeholder="Enter shipping address"></textarea>
-              <div *ngIf="customerDetailsForm.get('shippingAddress')?.invalid && customerDetailsForm.get('shippingAddress')?.touched" class="text-red-600 text-sm mt-1">
-                Shipping address is required
+            <h4 class="text-gray-700 font-medium mb-2">Delivery Information</h4>
+            
+            <div class="form-group">
+              <label for="shippingAddress">Shipping Address</label>
+              <input type="text" id="shippingAddress" formControlName="shippingAddress" class="form-control" placeholder="Enter delivery address">
+              <div *ngIf="customerDetailsForm.get('shippingAddress')?.invalid && customerDetailsForm.get('shippingAddress')?.touched" class="text-danger">
+                Shipping address is required.
               </div>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-              <div class="form-group">
-                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <input type="text" id="city" formControlName="city" class="form-control" placeholder="Enter city">
-                <div *ngIf="customerDetailsForm.get('city')?.invalid && customerDetailsForm.get('city')?.touched" class="text-red-600 text-sm mt-1">
-                  City is required
+            
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="city">City</label>
+                <input type="text" id="city" formControlName="city" class="form-control" placeholder="City">
+                <div *ngIf="customerDetailsForm.get('city')?.invalid && customerDetailsForm.get('city')?.touched" class="text-danger">
+                  City is required.
                 </div>
               </div>
-              <div class="form-group">
-                <label for="pincode" class="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
-                <input type="text" id="pincode" formControlName="pincode" class="form-control" placeholder="Enter PIN code">
-                <div *ngIf="customerDetailsForm.get('pincode')?.invalid && customerDetailsForm.get('pincode')?.touched" class="text-red-600 text-sm mt-1">
-                  Valid PIN code is required
+              
+              <div class="form-group col-md-6">
+                <label for="pincode">Postal Code</label>
+                <input type="text" id="pincode" formControlName="pincode" class="form-control" placeholder="6-digit pincode">
+                <div *ngIf="customerDetailsForm.get('pincode')?.invalid && customerDetailsForm.get('pincode')?.touched" class="text-danger">
+                  Enter a valid 6-digit pincode.
                 </div>
               </div>
             </div>
-
-            <div class="form-group mb-4">
-              <label for="deliveryInstructions" class="block text-sm font-medium text-gray-700 mb-1">Delivery Instructions (Optional)</label>
+            
+            <div class="form-group">
+              <label for="deliveryInstructions">Delivery Instructions (Optional)</label>
               <textarea id="deliveryInstructions" formControlName="deliveryInstructions" class="form-control" rows="2" placeholder="Any special instructions for delivery"></textarea>
             </div>
           </div>
@@ -217,29 +232,29 @@
             <div class="bg-gray-50 p-4 rounded">
               <div class="max-h-40 overflow-y-auto mb-3">
                 <div *ngFor="let item of cartItems" class="flex justify-between py-1 text-sm border-b border-gray-200 last:border-0">
-                  <span>{{ item.cycle.name }} x {{ item.quantity }}</span>
-                  <span>₹{{ item.cycle.price * item.quantity | number:'1.0-0' }}</span>
+                  <span>{{ item.cycleName }} x {{ item.quantity }}</span>
+                  <span>₹{{ item.unitPrice * item.quantity | number:'1.0-2' }}</span>
                 </div>
               </div>
               
               <div class="flex justify-between py-1 text-sm">
                 <span>Subtotal:</span>
-                <span>₹{{ calculateSubtotal() | number:'1.0-0' }}</span>
+                <span>₹{{ calculateSubtotal() | number:'1.0-2' }}</span>
               </div>
               
               <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="flex justify-between py-1 text-sm">
                 <span>Delivery Fee:</span>
-                <span>₹{{ deliveryFee | number:'1.0-0' }}</span>
+                <span>₹{{ deliveryFee | number:'1.0-2' }}</span>
               </div>
               
               <div class="flex justify-between py-1 text-sm">
                 <span>Tax (18%):</span>
-                <span>₹{{ calculateTax() | number:'1.0-0' }}</span>
+                <span>₹{{ calculateTax() | number:'1.0-2' }}</span>
               </div>
               
               <div class="flex justify-between py-2 text-base font-semibold border-t border-gray-300 mt-1">
                 <span>Total:</span>
-                <span>₹{{ calculateTotal() | number:'1.0-0' }}</span>
+                <span>₹{{ calculateTotal() | number:'1.0-2' }}</span>
               </div>
             </div>
           </div>
@@ -273,26 +288,18 @@
             <div class="payment-methods">
               <div class="payment-option">
                 <input type="radio" id="razorpay" formControlName="paymentMethod" value="razorpay">
-                <label for="razorpay" class="flex items-center">
-                  <span class="mr-2">Razorpay</span>
-                  <i class="bi bi-credit-card text-blue-600"></i>
+                <label for="razorpay">
+                  <i class="bi bi-credit-card"></i>
+                  <span>Pay Online (Razorpay)</span>
                 </label>
               </div>
               <div class="payment-option">
                 <input type="radio" id="cash" formControlName="paymentMethod" value="cash">
-                <label for="cash" class="flex items-center">
-                  <span class="mr-2">Cash</span>
-                  <i class="bi bi-cash text-green-600"></i>
+                <label for="cash">
+                  <i class="bi bi-cash"></i>
+                  <span>Cash</span>
                 </label>
               </div>
-            </div>
-          </div>
-          
-          <div *ngIf="paymentForm.value.paymentMethod === 'razorpay'" class="card-details">
-            <div class="p-4 bg-blue-50 rounded mb-4">
-              <p class="text-sm text-gray-700">
-                You will be redirected to Razorpay's secure payment gateway to complete your payment.
-              </p>
             </div>
           </div>
           
@@ -303,7 +310,7 @@
             </div>
             <div class="form-group" *ngIf="paymentForm.value.cashAmount && +paymentForm.value.cashAmount > calculateTotal()">
               <label>Change</label>
-              <div class="change-amount">₹{{ +paymentForm.value.cashAmount - calculateTotal() | number:'1.0-0' }}</div>
+              <div class="change-amount">₹{{ +paymentForm.value.cashAmount - calculateTotal() | number:'1.0-2' }}</div>
             </div>
           </div>
           
@@ -311,29 +318,29 @@
             <h4>Final Summary</h4>
             <div class="summary-items">
               <div *ngFor="let item of cartItems" class="summary-item">
-                <span>{{ item.cycle.name }} x {{ item.quantity }}</span>
-                <span>₹{{ item.cycle.price * item.quantity | number:'1.0-0' }}</span>
+                <span>{{ item.cycleName }} x {{ item.quantity }}</span>
+                <span>₹{{ item.unitPrice * item.quantity | number:'1.0-2' }}</span>
               </div>
             </div>
             
             <div class="summary-subtotal">
               <span>Subtotal:</span>
-              <span>₹{{ calculateSubtotal() | number:'1.0-0' }}</span>
+              <span>₹{{ calculateSubtotal() | number:'1.0-2' }}</span>
             </div>
             
             <div *ngIf="customerDetailsForm.get('orderType')?.value === 'delivery'" class="summary-subtotal">
               <span>Delivery:</span>
-              <span>₹{{ deliveryFee | number:'1.0-0' }}</span>
+              <span>₹{{ deliveryFee | number:'1.0-2' }}</span>
             </div>
             
             <div class="summary-subtotal">
               <span>Tax (18%):</span>
-              <span>₹{{ calculateTax() | number:'1.0-0' }}</span>
+              <span>₹{{ calculateTax() | number:'1.0-2' }}</span>
             </div>
             
             <div class="summary-total">
               <span>Total:</span>
-              <span>₹{{ calculateTotal() | number:'1.0-0' }}</span>
+              <span>₹{{ calculateTotal() | number:'1.0-2' }}</span>
             </div>
           </div>
           

@@ -28,7 +28,8 @@
           <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Customers</span>
         </a>
       </li>
-      <li>
+      <!-- Only show Employees section for Admin users -->
+      <li *ngIf="isAdmin">
         <a routerLink="/employees" routerLinkActive="bg-blue-700"
            class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200">
           <i class="bi bi-people text-xl"></i> 
@@ -49,6 +50,13 @@
           <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Orders</span>
         </a>
       </li>
+      <!-- Logout option -->
+      <li class="mt-6">
+        <a (click)="logout()" class="flex items-center p-3 rounded-lg hover:bg-blue-700/50 transition-all duration-200 cursor-pointer">
+          <i class="bi bi-box-arrow-right text-xl"></i> 
+          <span class="ml-4 transition-opacity duration-200" [class.opacity-0]="isSidebarCollapsed" [class.hidden]="isSidebarCollapsed">Logout</span>
+        </a>
+      </li>
     </ul>
   </nav>
 
@@ -60,7 +68,11 @@
         <button class="text-gray-600 hover:text-blue-600 focus:outline-none" (click)="toggleSidebar()">
           <i class="bi bi-list text-2xl"></i>
         </button>
-        <div class="ml-4 text-lg font-semibold text-gray-800">Admin Dashboard</div>
+        <div class="ml-4 text-lg font-semibold text-gray-800">
+          <span *ngIf="isAdmin">Admin</span>
+          <span *ngIf="!isAdmin">Employee</span>
+          Dashboard
+        </div>
       </div>
       <div class="flex items-center space-x-4">
         <div class="relative">
@@ -70,7 +82,10 @@
           </button>
         </div>
         <div class="flex items-center space-x-3">
-          <span class="text-gray-700 font-medium hidden md:block">Admin User</span>
+          <div class="flex flex-col items-end">
+            <span class="text-gray-700 font-medium hidden md:block">{{ userEmail }}</span>
+            <span class="text-xs text-gray-500">Role: <span class="font-semibold">{{ isAdmin ? 'Admin' : 'Employee' }}</span></span>
+          </div>
           <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
             <i class="bi bi-person"></i>
           </div>

@@ -11,11 +11,13 @@ export class CycleTypeService {
 
   constructor(private http: HttpClient) { }
 
-  // Get all cycle types
-  getAllCycleTypes(): Observable<ICycleType[]> {
-    return this.http.get<PagedResponse<ICycleType>>(this.apiUrl).pipe(
-        map(response => response.items)
-      );
+  // Get all cycle types with pagination
+  getAllCycleTypes(page: number = 1, pageSize: number = 10): Observable<PagedResponse<ICycleType>> {
+    const params = {
+      pageNumber: page.toString(),
+      pageSize: pageSize.toString()
+    };
+    return this.http.get<PagedResponse<ICycleType>>(this.apiUrl, { params });
   }
 
   // Get a specific cycle type by ID
