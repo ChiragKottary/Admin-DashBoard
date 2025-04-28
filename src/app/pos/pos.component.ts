@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { 
   ICycle, 
   ICustomer, 
@@ -13,6 +14,7 @@ import {
   PaymentStatus,
   ICycleType
 } from '../app.models';
+import { environment } from '../../environments/environment';
 
 // Extended interfaces to match the template requirements
 interface ExtendedCustomer extends ICustomer {
@@ -25,6 +27,7 @@ interface ExtendedCartItem extends ICartItem {
   cycleBrand: string;
   cycleType: string;
   cycleImage?: string;
+  cycleDescription?: string;
 }
 
 interface ExtendedCart extends ICart {
@@ -85,6 +88,10 @@ export class PosComponent implements OnInit {
   showCustomerDetailsModal: boolean = false;
   showPaymentModal: boolean = false;
   
+  // Payment success animation
+  showSuccessAnimation: boolean = false;
+  successOrderNumber: string = '';
+  
   // Forms
   customerDetailsForm: FormGroup;
   paymentForm: FormGroup;
@@ -102,7 +109,7 @@ export class PosComponent implements OnInit {
   categories: string[] = ['All Categories'];
   cycleTypes: ICycleType[] = [];
   
-  constructor(private fb: FormBuilder, private http: HttpClient) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router) {
     // Initialize payment form
     this.paymentForm = this.fb.group({
       paymentMethod: ['razorpay', Validators.required],
@@ -191,7 +198,7 @@ export class PosComponent implements OnInit {
 
   // Load recent orders
   loadRecentOrders(): void {
-    this.http.get<any>(`${this.apiUrl}/Order?pageSize=5&sortBy=orderDate&sortDirection=desc`).subscribe({
+    this.http.get<any>(`${this.apiUrl}/Order?pageSize=5&sortBy=orderDate&sortDirection=0`).subscribe({
       next: (response) => {
         if (response && response.items) {
           this.recentOrders = response.items;
@@ -264,13 +271,14 @@ export class PosComponent implements OnInit {
       return;
     }
     
-    // If customer has an active cart, add to the existing cart
-    if (this.activeCart) {
+    // Check if customer already has an active cart
+    if (this.activeCart && this.activeCart.cartId) {
       const payload = {
         cycleId: cycle.cycleId,
         quantity: 1
       };
       
+      // Use direct Cart endpoint as specified
       this.http.post(`${this.apiUrl}/Cart/${this.activeCart.cartId}/items`, payload).subscribe({
         next: () => {
           // Reload cart after adding item
@@ -284,30 +292,28 @@ export class PosComponent implements OnInit {
         }
       });
     } else {
-      // Create a new cart for the customer
-      this.http.post(`${this.apiUrl}/Cart`, { customerId: this.selectedCustomer.customerId }).subscribe({
-        next: (response: any) => {
-          this.activeCart = response as ExtendedCart;
-          
-          // Now add the item to the new cart
-          if (this.activeCart) {
+      // No active cart exists, create one via the customer endpoint first
+      this.http.post<any>(`${this.apiUrl}/Customers/${this.selectedCustomer.customerId}/cart`, {}).subscribe({
+        next: (response) => {
+          if (response && response.cartId) {
+            // Now add the item to the newly created cart
             const payload = {
               cycleId: cycle.cycleId,
               quantity: 1
             };
             
-            this.http.post(`${this.apiUrl}/Cart/${this.activeCart.cartId}/items`, payload).subscribe({
+            this.http.post(`${this.apiUrl}/Cart/${response.cartId}/items`, payload).subscribe({
               next: () => {
                 // Reload cart after adding item
-                if (this.selectedCustomer) {
-                  this.loadCustomerCart(this.selectedCustomer.customerId);
-                }
+                this.loadCustomerCart(this.selectedCustomer!.customerId);
               },
               error: (error) => {
                 console.error('Error adding item to cart:', error);
                 alert('Failed to add item to cart. Please try again.');
               }
             });
+          } else {
+            alert('Failed to create cart. Please try again.');
           }
         },
         error: (error) => {
@@ -320,7 +326,7 @@ export class PosComponent implements OnInit {
 
   // Update cart item quantity
   updateQuantity(item: ExtendedCartItem, change: number): void {
-    if (!this.activeCart) return;
+    if (!this.activeCart || !this.selectedCustomer) return;
     
     const newQuantity = item.quantity + change;
     
@@ -338,6 +344,7 @@ export class PosComponent implements OnInit {
         quantity: newQuantity
       };
       
+      // Use the direct Cart endpoint as specified
       this.http.put(`${this.apiUrl}/Cart/items/${item.cartItemId}`, payload).subscribe({
         next: () => {
           // Reload cart after updating item
@@ -355,7 +362,7 @@ export class PosComponent implements OnInit {
 
   // Remove item from cart
   removeFromCart(item: ExtendedCartItem): void {
-    if (!this.activeCart) return;
+    if (!this.activeCart || !this.selectedCustomer) return;
     
     if (confirm('Are you sure you want to remove this item from the cart?')) {
       this.http.delete(`${this.apiUrl}/Cart/items/${item.cartItemId}`).subscribe({
@@ -424,53 +431,42 @@ export class PosComponent implements OnInit {
   loadCustomerCart(customerId: string): void {
     console.log('Loading cart for customer:', customerId);
     
-    // Use the correct endpoint format: /api/Customers/{id}/cart
+    // Use the customer-centric cart endpoint to get cart information
     this.http.get<any>(`${this.apiUrl}/Customers/${customerId}/cart`).subscribe({
       next: (response) => {
         console.log('Cart API response:', response);
         
         if (response && response.cartId) {
-          // Store the cartId from the API response
-          const cartId = response.cartId;
-          console.log('Found active cart with ID:', cartId);
-          
-          // Now fetch the detailed cart with items using the cartId
-          this.http.get<any>(`${this.apiUrl}/Cart/${cartId}`).subscribe({
-            next: (cartDetails) => {
-              console.log('Cart details response:', cartDetails);
-              
-              // Transform API cart data to match our extended interface
-              const transformedCart: ExtendedCart = {
-                ...cartDetails,
-                totalAmount: cartDetails.cartItems?.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0) || 0,
-                totalItems: cartDetails.cartItems?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
-                cartItems: cartDetails.cartItems?.map((item: any) => {
-                  console.log('Cart item cycle data:', item.cycle);
-                  return {
-                    ...item,
-                    cycleName: item.cycle?.modelName || 'Unknown Cycle',
-                    cycleBrand: item.cycle?.brand?.brandName || 'Unknown Brand',
-                    cycleType: item.cycle?.cycleType?.typeName || 'Unknown Type',
-                    cycleImage: item.cycle?.imageUrl
-                  };
-                }) || []
+          // Store the active cart data including cartId
+          // The cart items already have cycleName, cycleBrand, and cycleType properties,
+          // so we don't need to map them from cycle object
+          const transformedCart: ExtendedCart = {
+            ...response,
+            totalAmount: response.totalAmount || 0,
+            totalItems: response.totalItems || 0,
+            cartItems: response.cartItems?.map((item: any) => {
+              console.log('Processing cart item:', item);
+              // We use the properties directly from the cart item
+              // They're already named correctly (cycleName, cycleBrand, cycleType)
+              return {
+                ...item,
+                // If properties are missing, provide defaults
+                cycleName: item.cycleName || 'Unknown Cycle',
+                cycleBrand: item.cycleBrand || 'Unknown Brand',
+                cycleType: item.cycleType || 'Unknown Type',
+                cycleImage: item.cycleImage || ''
               };
-              
-              console.log('Transformed cart:', transformedCart);
-              this.activeCart = transformedCart;
-              this.cartItems = transformedCart.cartItems;
-              
-              // Update customer's hasActiveCart status
-              if (this.selectedCustomer) {
-                this.selectedCustomer.hasActiveCart = true;
-              }
-            },
-            error: (cartError) => {
-              console.error('Error loading cart details:', cartError);
-              this.activeCart = null;
-              this.cartItems = [];
-            }
-          });
+            }) || []
+          };
+          
+          console.log('Transformed cart:', transformedCart);
+          this.activeCart = transformedCart;
+          this.cartItems = transformedCart.cartItems;
+          
+          // Update customer's hasActiveCart status
+          if (this.selectedCustomer) {
+            this.selectedCustomer.hasActiveCart = true;
+          }
         } else {
           console.log('No active cart found for customer');
           this.activeCart = null;
@@ -581,120 +577,32 @@ export class PosComponent implements OnInit {
     this.createOrder(paymentMethod);
   }
 
-  // Initiate Razorpay payment
-  initiateRazorpayPayment(): void {
-    const options = {
-      key: 'rzp_test_key',
-      amount: this.calculateTotal() * 100, // in paise
-      currency: 'INR',
-      name: 'Cycle Enterprise',
-      description: 'Purchase of Cycles',
-      image: 'assets/images/logo.png',
-      handler: (response: any) => {
-        console.log('Payment success:', response);
-        this.createOrder('Razorpay', response.razorpay_payment_id);
-      },
-      modal: {
-        ondismiss: () => {
-          console.log('Payment modal dismissed');
-        }
-      },
-      theme: {
-        color: '#3399cc'
-      }
-    };
-    
-    // Open Razorpay checkout
-    const razorpayWindow = new (window as any).Razorpay(options);
-    razorpayWindow.open();
-  }
-
-  // Create order after successful payment
-  createOrder(paymentMethod: string, paymentId?: string): void {
+  // Create order after successful cash payment
+  createOrder(paymentMethod: string): void {
     if (!this.activeCart || !this.selectedCustomer) return;
     
-    // Create order payload
-    const orderCreate: OrderCreate = {
-      customerId: this.selectedCustomer.customerId,
-      status: paymentMethod === 'razorpay' ? OrderStatus.PROCESSING : OrderStatus.PENDING,
-      totalAmount: this.calculateTotal(),
-      shippingAddress: this.customerDetailsForm.value.shippingAddress || '',
-      shippingCity: this.customerDetailsForm.value.shippingCity || '',
-      shippingState: this.customerDetailsForm.value.shippingState || '',
-      shippingPostalCode: this.customerDetailsForm.value.shippingPostalCode || '',
-      notes: this.customerDetailsForm.value.deliveryInstructions || '',
-      orderItems: this.cartItems.map(item => ({
-        cycleId: item.cycleId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice
-      }))
+    // Create order from cart using dedicated endpoint with all required fields
+    const shippingAddress = this.customerDetailsForm.value.shippingAddress || this.selectedCustomer.address;
+    const orderFromCartPayload = {
+      cartId: this.activeCart.cartId,
+      shippingAddress: (!shippingAddress || shippingAddress.length < 5) ? 'Default Address' : shippingAddress,
+      shippingCity: this.customerDetailsForm.value.shippingCity || this.selectedCustomer.city || 'Default City',
+      shippingState: this.customerDetailsForm.value.shippingState || 'Karnataka',
+      shippingPostalCode: this.customerDetailsForm.value.shippingPostalCode || this.selectedCustomer.postalCode || '000000',
+      notes: this.customerDetailsForm.value.deliveryInstructions || 'Order placed'
     };
     
-    // Create the order via API
-    this.http.post<IOrder>(`${this.apiUrl}/Order`, orderCreate).subscribe({
+    // Use the dedicated endpoint to create order from cart
+    this.http.post<IOrder>(`${this.apiUrl}/Order/from-cart`, orderFromCartPayload).subscribe({
       next: (createdOrder) => {
-        // If payment was via Razorpay, create the payment record
-        if (paymentMethod === 'razorpay' && paymentId) {
-          const paymentCreate = {
-            orderId: createdOrder.orderId,
-            razorpayOrderId: 'order_' + Date.now(), // This would normally come from Razorpay
-            razorpayPaymentId: paymentId,
-            razorpaySignature: '',  // This would normally come from Razorpay
-            amount: this.calculateTotal(),
-            currency: 'INR',
-            status: PaymentStatus.SUCCESS
-          };
-          
-          this.http.post(`${this.apiUrl}/Payment`, paymentCreate).subscribe({
-            next: () => console.log('Payment record created'),
-            error: (error) => console.error('Failed to create payment record:', error)
-          });
-        }
-        
         // Close modal and show success
         this.closePaymentModal();
         
         // Update local data
         this.loadRecentOrders();
         
-        // Clear cart after order
-        if (this.activeCart) {
-          this.http.delete(`${this.apiUrl}/Cart/${this.activeCart.cartId}`).subscribe({
-            next: () => {
-              // Clear local cart data
-              this.activeCart = null;
-              this.cartItems = [];
-              
-              // Update customer's hasActiveCart status
-              if (this.selectedCustomer) {
-                this.selectedCustomer.hasActiveCart = false;
-              }
-              
-              // Update stock by creating stock movement
-              this.cartItems.forEach(item => {
-                const stockMovementPayload = {
-                  cycleId: item.cycleId,
-                  quantity: item.quantity,
-                  movementType: 1, // StockOut
-                  userId: 'system', // Should be replaced with actual logged in user ID
-                  notes: `Order: ${createdOrder.orderNumber}`
-                };
-                
-                this.http.post(`${this.apiUrl}/Stock/movements`, stockMovementPayload).subscribe({
-                  next: () => console.log(`Stock updated for cycle ${item.cycleId}`),
-                  error: (error) => console.error('Failed to update stock:', error)
-                });
-              });
-              
-              // Show success message
-              alert(`Order ${createdOrder.orderNumber} has been successfully processed!`);
-            },
-            error: (error) => {
-              console.error('Error clearing cart:', error);
-              alert('Order was created but failed to clear cart. Please check the system.');
-            }
-          });
-        }
+        // Show success animation and redirect to orders page
+        this.showOrderSuccessAndRedirect(createdOrder.orderNumber);
       },
       error: (error) => {
         console.error('Failed to create order:', error);
@@ -703,11 +611,123 @@ export class PosComponent implements OnInit {
     });
   }
 
+  // Initiate Razorpay payment
+  initiateRazorpayPayment(): void {
+    // First, create an order from the cart with all required fields filled
+    const shippingAddress = this.customerDetailsForm.value.shippingAddress || this.selectedCustomer!.address;
+    const orderFromCartPayload = {
+      cartId: this.activeCart!.cartId,
+      shippingAddress: (!shippingAddress || shippingAddress.length < 5) ? 'Default Address' : shippingAddress,
+      shippingCity: this.customerDetailsForm.value.shippingCity || this.selectedCustomer!.city || 'Default City',
+      shippingState: this.customerDetailsForm.value.shippingState || 'Karnataka',
+      shippingPostalCode: this.customerDetailsForm.value.shippingPostalCode || this.selectedCustomer!.postalCode || '000000',
+      notes: this.customerDetailsForm.value.deliveryInstructions || 'Order placed'
+    };
+    
+    // Create the order first
+    this.http.post<IOrder>(`${this.apiUrl}/Order/from-cart`, orderFromCartPayload).subscribe({
+      next: (createdOrder) => {
+        // Calculate the total amount in paise (multiply by 100 and round to ensure integer)
+        const amountInPaise = Math.round(createdOrder.totalAmount * 100);
+        
+        // Now create a payment intent for this order using the new endpoint
+        const paymentCreatePayload = {
+          orderId: createdOrder.orderId
+        };
+
+        this.http.post<any>(`${this.apiUrl}/Payment/create`, paymentCreatePayload).subscribe({
+          next: (razorpayResponse) => {
+            console.log('Razorpay create response:', razorpayResponse);
+            
+            // Use the order's total amount converted to paise, not the amount from the response
+            const options = {
+              key: environment.razorpayKey,
+              amount: amountInPaise, // Using the order's amount, not razorpayResponse.amount
+              currency: 'INR', // Assuming currency is INR
+              name: 'Cycle Enterprise',
+              description: `Order: ${createdOrder.orderNumber}`,
+              order_id: razorpayResponse.orderId, // Still using Razorpay's order ID
+              image: 'assets/images/logo.png',
+              handler: (response: any) => {
+                console.log('Razorpay payment response:', response);
+                
+                // Check if we have all required fields
+                if (!response.razorpay_payment_id) {
+                  console.error('Missing payment ID in Razorpay response');
+                  alert('Payment verification failed: Missing payment ID');
+                  return;
+                }
+                
+                // After successful payment, verify with your backend
+                // Handle potentially missing signature - some integration methods might not return it
+                const verifyPayload = {
+                  orderId: razorpayResponse.orderId, // Using Razorpay order ID instead of backend order ID
+                  paymentId: response.razorpay_payment_id,
+                  signature: response.razorpay_signature || '' // Provide empty string if undefined
+                };
+                
+                console.log('Verification payload:', verifyPayload);
+                
+                // Verify the payment
+                this.http.post(`${this.apiUrl}/Payment/verify`, verifyPayload).subscribe({
+                  next: () => {
+                    console.log('Payment verified successfully');
+                    
+                    // Close payment modal
+                    this.closePaymentModal();
+                    
+                    // Update local data - cart is already cleared on the backend
+                    this.loadRecentOrders();
+                    
+                    // Show success animation and redirect to orders page
+                    this.showOrderSuccessAndRedirect(createdOrder.orderNumber);
+                  },
+                  error: (error) => {
+                    console.log('Verification payload that failed:', verifyPayload);
+                    console.error('Payment verification failed:', error);
+                    alert('Payment verification failed. Please contact support with your order number.');
+                  }
+                });
+              },
+              modal: {
+                ondismiss: () => {
+                  console.log('Payment modal dismissed');
+                  alert('Payment cancelled. Your order will be processed once payment is completed.');
+                }
+              },
+              prefill: {
+                name: this.selectedCustomer?.fullName || '',
+                email: this.selectedCustomer?.email || '',
+                contact: this.selectedCustomer?.phone || ''
+              },
+              theme: {
+                color: '#3399cc'
+              }
+            };
+            
+            // Open Razorpay checkout
+            const razorpayWindow = new (window as any).Razorpay(options);
+            razorpayWindow.open();
+          },
+          error: (error) => {
+            console.error('Failed to create payment:', error);
+            alert('Failed to initialize payment. Please try again.');
+          }
+        });
+      },
+      error: (error) => {
+        console.error('Failed to create order:', error);
+        alert('Failed to create order. Please try again.');
+      }
+    });
+  }
+
   // Clear cart
   clearCart(): void {
-    if (!this.activeCart) return;
+    if (!this.activeCart || !this.selectedCustomer) return;
     
     if (confirm('Are you sure you want to clear the cart?')) {
+      // Use direct Cart endpoint as specified
       this.http.delete(`${this.apiUrl}/Cart/${this.activeCart.cartId}`).subscribe({
         next: () => {
           this.activeCart = null;
@@ -724,5 +744,24 @@ export class PosComponent implements OnInit {
         }
       });
     }
+  }
+
+  // Show success animation and redirect to orders
+  showOrderSuccessAndRedirect(orderNumber: string): void {
+    // Set success information
+    this.successOrderNumber = orderNumber;
+    this.showSuccessAnimation = true;
+    
+    // Clear the customer and cart data
+    this.selectedCustomer = null;
+    this.activeCart = null;
+    this.cartItems = [];
+    this.customerSearchTerm = '';
+    
+    // Play the animation for 3 seconds, then redirect
+    setTimeout(() => {
+      this.showSuccessAnimation = false;
+      this.router.navigate(['/orders']);
+    }, 3000);
   }
 }

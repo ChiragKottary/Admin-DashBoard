@@ -2,11 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ToastNotificationsComponent } from '../components/notifications/toast-notifications.component';
+import { ConfirmationDialogComponent } from "../components/confirmation-dialog/confirmation-dialog.component";
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ToastNotificationsComponent, ConfirmationDialogComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.scss'
 })

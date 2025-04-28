@@ -354,4 +354,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Success Animation Modal -->
+<div class="success-animation-container" *ngIf="showSuccessAnimation">
+  <div class="success-animation">
+    <div class="celebration">
+      <div class="confetti-container">
+        <div class="confetti" *ngFor="let i of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]"></div>
+      </div>
+      <div class="success-icon">
+        <i class="bi bi-check-circle-fill"></i>
+      </div>
+      <h2 class="success-title">Order Successful!</h2>
+      <p class="success-message">Order #{{ successOrderNumber }} has been placed successfully</p>
+      <p class="redirect-message">Redirecting to Orders...</p>
+    </div>
+  </div>
+</div>
 </div>

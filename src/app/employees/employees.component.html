@@ -23,7 +23,7 @@
       </div>
     </div>
     <div class="add-button">
-      <button class="btn btn-primary" (click)="resetForm()">
+      <button class="btn btn-primary" (click)="showRegistrationForm()">
         <i class="bi bi-person-plus"></i> Add Employee
       </button>
     </div>
@@ -39,46 +39,57 @@
             <span class="count">{{ filteredEmployees.length }}</span> employees found
           </div>
         </div>
-        <div class="table-responsive">
+        
+        <!-- Loading Spinner -->
+        <div *ngIf="isLoading" class="d-flex justify-content-center my-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        
+        <div *ngIf="!isLoading" class="table-responsive">
           <table class="table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Role</th>
                 <th>Email</th>
-                <th>Join Date</th>
+                <th>Phone</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let employee of filteredEmployees">
-                <td>{{ employee.id }}</td>
-                <td>{{ employee.name }}</td>
-                <td>{{ employee.role }}</td>
+                <td>{{ getFullName(employee) }}</td>
+                <td>Employee</td>
                 <td>{{ employee.email }}</td>
-                <td>{{ employee.joinDate | date }}</td>
+                <td>{{ employee.phoneNumber || 'N/A' }}</td>
                 <td>
-                  <span class="status-badge" [class]="employee.status">
-                    {{ employee.status }}
+                  <span class="status-badge" [class.active]="employee.isActive" [class.inactive]="!employee.isActive">
+                    {{ employee.isActive ? 'active' : 'inactive' }}
                   </span>
                 </td>
                 <td>
                   <button class="btn btn-sm btn-outline-primary me-1" (click)="editEmployee(employee)" title="Edit">
                     <i class="bi bi-pencil"></i>
                   </button>
-                  <button class="btn btn-sm me-1" [class.btn-outline-success]="employee.status === 'inactive'" [class.btn-outline-warning]="employee.status === 'active'" 
-                    (click)="toggleStatus(employee)" [title]="employee.status === 'active' ? 'Deactivate' : 'Activate'">
-                    <i class="bi" [class.bi-person-check]="employee.status === 'inactive'" [class.bi-person-dash]="employee.status === 'active'"></i>
+                  <button class="btn btn-sm me-1" 
+                    [class.btn-outline-success]="!employee.isActive" 
+                    [class.btn-outline-warning]="employee.isActive" 
+                    (click)="toggleStatus(employee)" 
+                    [title]="employee.isActive ? 'Deactivate' : 'Activate'">
+                    <i class="bi" 
+                      [class.bi-person-check]="!employee.isActive" 
+                      [class.bi-person-dash]="employee.isActive"></i>
                   </button>
                   <button class="btn btn-sm btn-outline-danger" (click)="deleteEmployee(employee)" title="Delete">
                     <i class="bi bi-trash"></i>
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="filteredEmployees.length === 0">
-                <td colspan="7" class="text-center">No employees found.</td>
+              <tr *ngIf="filteredEmployees.length === 0 && !isLoading">
+                <td colspan="6" class="text-center">No employees found.</td>
               </tr>
             </tbody>
           </table>
@@ -86,90 +97,113 @@
       </div>
     </div>
     
-    <!-- Employee Form -->
-    <div class="col-lg-4">
+    <!-- Employee Registration Form -->
+    <div class="col-lg-4" *ngIf="showRegisterForm">
       <div class="content-card">
         <div class="card-header">
-          <h3>{{ selectedEmployee ? 'Edit Employee' : 'Add New Employee' }}</h3>
+          <h3>Register New Employee</h3>
         </div>
-        <form [formGroup]="employeeForm" class="form">
+        <form [formGroup]="registerForm" class="form">
           <div class="form-group">
-            <label for="name">Full Name</label>
-            <input type="text" id="name" formControlName="name" class="form-control" placeholder="Enter full name">
-            <div class="error-message" *ngIf="employeeForm.get('name')?.invalid && employeeForm.get('name')?.touched">
-              Name is required.
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName" formControlName="firstName" class="form-control" placeholder="Enter first name">
+            <div class="error-message" *ngIf="registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched">
+              First name is required.
             </div>
           </div>
           
           <div class="form-group">
-            <label for="email">Email Address</label>
-            <input type="email" id="email" formControlName="email" class="form-control" placeholder="Enter email address">
-            <div class="error-message" *ngIf="employeeForm.get('email')?.invalid && employeeForm.get('email')?.touched">
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName" formControlName="lastName" class="form-control" placeholder="Enter last name">
+            <div class="error-message" *ngIf="registerForm.get('lastName')?.invalid && registerForm.get('lastName')?.touched">
+              Last name is required.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" formControlName="email" class="form-control" placeholder="Enter email">
+            <div class="error-message" *ngIf="registerForm.get('email')?.invalid && registerForm.get('email')?.touched">
               Please enter a valid email.
             </div>
           </div>
           
           <div class="form-group">
-            <label for="phone">Phone Number</label>
-            <input type="text" id="phone" formControlName="phone" class="form-control" placeholder="Enter 10 digit phone">
-            <div class="error-message" *ngIf="employeeForm.get('phone')?.invalid && employeeForm.get('phone')?.touched">
-              Please enter a valid 10-digit phone number.
+            <label for="phoneNumber">Phone Number</label>
+            <input type="tel" id="phoneNumber" formControlName="phoneNumber" class="form-control" placeholder="Enter phone number">
+            <div class="error-message" *ngIf="registerForm.get('phoneNumber')?.invalid && registerForm.get('phoneNumber')?.touched">
+              Please enter a valid phone number.
             </div>
           </div>
           
           <div class="form-group">
-            <label for="role">Role</label>
-            <select id="role" formControlName="role" class="form-control">
-              <option value="">Select Role</option>
-              <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
-            </select>
-            <div class="error-message" *ngIf="employeeForm.get('role')?.invalid && employeeForm.get('role')?.touched">
-              Role is required.
-            </div>
+            <label for="regAddress">Address</label>
+            <textarea id="regAddress" formControlName="address" class="form-control" rows="2" placeholder="Enter address"></textarea>
           </div>
           
           <div class="form-group">
-            <label for="joinDate">Join Date</label>
-            <input type="date" id="joinDate" formControlName="joinDate" class="form-control">
-          </div>
-          
-          <div class="form-group">
-            <label for="status">Status</label>
-            <select id="status" formControlName="status" class="form-control">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="address">Address (Optional)</label>
-            <textarea id="address" formControlName="address" class="form-control" rows="2" placeholder="Enter address"></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label for="salary">Monthly Salary (Optional)</label>
-            <input type="number" id="salary" formControlName="salary" class="form-control" placeholder="Enter salary amount">
-          </div>
-          
-          <div class="form-group">
-            <label>Permissions</label>
-            <div class="permissions-container">
-              <div *ngFor="let permission of permissionOptions" class="permission-checkbox">
-                <input type="checkbox" [id]="permission.value" [checked]="isPermissionSelected(permission.value)" 
-                  (change)="togglePermission(permission.value)">
-                <label [for]="permission.value">{{ permission.label }}</label>
-              </div>
-            </div>
-            <div class="error-message" *ngIf="employeeForm.get('permissions')?.invalid && employeeForm.get('permissions')?.touched">
-              At least one permission is required.
+            <label for="password">Password</label>
+            <input type="password" id="password" formControlName="password" class="form-control" placeholder="Enter password">
+            <div class="error-message" *ngIf="registerForm.get('password')?.invalid && registerForm.get('password')?.touched">
+              Password must be at least 6 characters.
             </div>
           </div>
           
           <div class="form-group form-actions">
-            <button *ngIf="!selectedEmployee" type="button" [disabled]="employeeForm.invalid" class="btn btn-primary" (click)="addEmployee()">
-              <i class="bi bi-person-plus"></i> Add Employee
+            <button type="button" [disabled]="registerForm.invalid || isLoading" class="btn btn-primary" (click)="registerEmployee()">
+              <i class="bi bi-person-plus"></i> Register Employee
             </button>
-            <button *ngIf="selectedEmployee" type="button" [disabled]="employeeForm.invalid" class="btn btn-success" (click)="updateEmployee()">
+            <button type="button" class="btn btn-secondary ms-2" (click)="resetForm()">
+              <i class="bi bi-x-circle"></i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Employee Edit Form -->
+    <div class="col-lg-4" *ngIf="selectedEmployee && !showRegisterForm">
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Edit Employee</h3>
+        </div>
+        <form [formGroup]="employeeForm" class="form">
+          <div class="form-group">
+            <label for="editFirstName">First Name</label>
+            <input type="text" id="editFirstName" formControlName="firstName" class="form-control" placeholder="Enter first name">
+            <div class="error-message" *ngIf="employeeForm.get('firstName')?.invalid && employeeForm.get('firstName')?.touched">
+              First name is required.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="editLastName">Last Name</label>
+            <input type="text" id="editLastName" formControlName="lastName" class="form-control" placeholder="Enter last name">
+            <div class="error-message" *ngIf="employeeForm.get('lastName')?.invalid && employeeForm.get('lastName')?.touched">
+              Last name is required.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="editEmail">Email (cannot be changed)</label>
+            <input type="email" id="editEmail" formControlName="email" class="form-control" placeholder="Email" [disabled]="true">
+          </div>
+          
+          <div class="form-group">
+            <label for="editPhoneNumber">Phone Number</label>
+            <input type="tel" id="editPhoneNumber" formControlName="phoneNumber" class="form-control" placeholder="Enter phone number">
+            <div class="error-message" *ngIf="employeeForm.get('phoneNumber')?.invalid && employeeForm.get('phoneNumber')?.touched">
+              Please enter a valid phone number.
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="editAddress">Address</label>
+            <textarea id="editAddress" formControlName="address" class="form-control" rows="2" placeholder="Enter address"></textarea>
+          </div>
+          
+          <div class="form-group form-actions">
+            <button type="button" [disabled]="employeeForm.invalid || isLoading" class="btn btn-success" (click)="updateEmployee()">
               <i class="bi bi-check-circle"></i> Update Employee
             </button>
             <button type="button" class="btn btn-secondary ms-2" (click)="resetForm()">

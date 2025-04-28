@@ -2,19 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
-
-interface Employee {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  joinDate: string;
-  status: 'active' | 'inactive';
-  address?: string;
-  salary?: number;
-  permissions: string[];
-}
+import { Employee, EmployeeService, EmployeeRegisterRequest, EmployeeUpdateRequest } from '../services/employee.service';
+import { NotificationService } from '../services/notification.service';
 
 @Component({
   selector: 'app-employees',
@@ -26,70 +15,12 @@ interface Employee {
 export class EmployeesComponent implements OnInit {
   // Employee Form
   employeeForm: FormGroup;
+  registerForm: FormGroup;
   
   // Employee data
-  employees: Employee[] = [
-    {
-      id: 1,
-      name: 'Rajesh Kumar',
-      email: 'rajesh@cycleenterprise.com',
-      phone: '9876543210',
-      role: 'Manager',
-      joinDate: '2023-02-15',
-      status: 'active',
-      address: '123 Main Street, Mumbai',
-      salary: 45000,
-      permissions: ['manage_inventory', 'manage_employees', 'manage_sales', 'view_reports']
-    },
-    {
-      id: 2,
-      name: 'Priya Singh',
-      email: 'priya@cycleenterprise.com',
-      phone: '8765432109',
-      role: 'Sales Associate',
-      joinDate: '2023-05-10',
-      status: 'active',
-      address: '456 Park Avenue, Delhi',
-      salary: 28000,
-      permissions: ['manage_sales', 'view_inventory']
-    },
-    {
-      id: 3,
-      name: 'Amit Sharma',
-      email: 'amit@cycleenterprise.com',
-      phone: '7654321098',
-      role: 'Inventory Specialist',
-      joinDate: '2023-08-22',
-      status: 'active',
-      address: '789 Lake View, Bangalore',
-      salary: 32000,
-      permissions: ['manage_inventory', 'view_reports']
-    },
-    {
-      id: 4,
-      name: 'Neha Patel',
-      email: 'neha@cycleenterprise.com',
-      phone: '6543210987',
-      role: 'Sales Associate',
-      joinDate: '2024-01-05',
-      status: 'active',
-      address: '234 Green Road, Chennai',
-      salary: 26000,
-      permissions: ['manage_sales', 'view_inventory']
-    },
-    {
-      id: 5,
-      name: 'Vikram Roy',
-      email: 'vikram@cycleenterprise.com',
-      phone: '5432109876',
-      role: 'Technician',
-      joinDate: '2023-11-15',
-      status: 'inactive',
-      address: '567 Tech Lane, Hyderabad',
-      salary: 30000,
-      permissions: ['manage_inventory', 'view_reports']
-    }
-  ];
+  employees: Employee[] = [];
+  isLoading = false;
+  showRegisterForm = false;
   
   // Available roles and permissions
   roles: string[] = ['Manager', 'Sales Associate', 'Inventory Specialist', 'Technician', 'Cashier', 'Admin'];
@@ -110,57 +41,102 @@ export class EmployeesComponent implements OnInit {
   searchTerm: string = '';
   statusFilter: 'all' | 'active' | 'inactive' = 'all';
   
-  constructor(private fb: FormBuilder) {
-    // Initialize form
+  constructor(
+    private fb: FormBuilder, 
+    private employeeService: EmployeeService,
+    private notificationService: NotificationService
+  ) {
+    // Initialize edit form
     this.employeeForm = this.fb.group({
-      name: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
-      role: ['', Validators.required],
-      joinDate: [new Date().toISOString().split('T')[0], Validators.required],
-      status: ['active', Validators.required],
+      firstName: ['', Validators.required],
+      lastName: ['', Validators.required],
+      email: [{value: '', disabled: true}],
+      phoneNumber: ['', [Validators.pattern(/^[0-9]{10,15}$/)]],  // Changed from phone to phoneNumber with same validation as registration form
       address: [''],
+      role: ['Employee'],  // Default role is Employee
+      joinDate: [{value: '', disabled: true}],
       salary: [null, [Validators.min(0)]],
-      permissions: [[], Validators.required]
+      permissions: [[]]
+    });
+    
+    // Initialize register form
+    this.registerForm = this.fb.group({
+      firstName: ['', Validators.required],
+      lastName: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      phoneNumber: ['', [Validators.pattern(/^[0-9]{10,15}$/)]],  // Changed from phone to phoneNumber and increased max digits
+      address: [''],
+      password: ['', [Validators.required, Validators.minLength(6)]]
     });
   }
 
   ngOnInit(): void {
+    this.loadEmployees();
+  }
+  
+  loadEmployees(): void {
+    this.isLoading = true;
+    this.employeeService.getEmployees().subscribe({
+      next: (data) => {
+        this.employees = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading employees:', error);
+        this.notificationService.showError('Failed to load employees');
+        this.isLoading = false;
+      }
+    });
   }
 
   // Reset form
   resetForm(): void {
-    this.employeeForm.reset({
-      status: 'active',
-      joinDate: new Date().toISOString().split('T')[0],
-      permissions: []
-    });
+    this.employeeForm.reset();
     this.selectedEmployee = null;
+    this.showRegisterForm = false;
   }
 
-  // Add new employee
-  addEmployee(): void {
-    if (this.employeeForm.valid) {
-      const newId = this.employees.length > 0 ? Math.max(...this.employees.map(e => e.id)) + 1 : 1;
-      const newEmployee: Employee = {
-        id: newId,
-        ...this.employeeForm.value
-      };
-      this.employees.push(newEmployee);
-      this.resetForm();
+  // Show register form
+  showRegistrationForm(): void {
+    this.resetForm();
+    this.showRegisterForm = true;
+  }
+
+  // Register new employee
+  registerEmployee(): void {
+    if (this.registerForm.valid) {
+      this.isLoading = true;
+      const employeeData: EmployeeRegisterRequest = this.registerForm.value;
+      
+      this.employeeService.registerEmployee(employeeData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Employee registered successfully');
+          this.loadEmployees();
+          this.registerForm.reset();
+          this.showRegisterForm = false;
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error registering employee:', error);
+          this.notificationService.showError('Failed to register employee');
+          this.isLoading = false;
+        }
+      });
     }
   }
 
   // Edit employee
   editEmployee(employee: Employee): void {
     this.selectedEmployee = employee;
+    this.showRegisterForm = false;
+    
     this.employeeForm.patchValue({
-      name: employee.name,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
       email: employee.email,
-      phone: employee.phone,
-      role: employee.role,
-      joinDate: employee.joinDate,
-      status: employee.status,
+      phoneNumber: employee.phoneNumber || '',  // Changed from phone to phoneNumber
+      role: employee.role || 'Employee',  // Default to Employee if not set
+      joinDate: employee.joinDate || new Date().toISOString().split('T')[0],
       address: employee.address || '',
       salary: employee.salary || null,
       permissions: employee.permissions || []
@@ -170,30 +146,98 @@ export class EmployeesComponent implements OnInit {
   // Update employee
   updateEmployee(): void {
     if (this.employeeForm.valid && this.selectedEmployee) {
-      const index = this.employees.findIndex(e => e.id === this.selectedEmployee!.id);
-      if (index !== -1) {
-        this.employees[index] = {
-          ...this.selectedEmployee,
-          ...this.employeeForm.value
-        };
-        this.resetForm();
-      }
+      this.isLoading = true;
+      
+      const employeeData: EmployeeUpdateRequest = {
+        firstName: this.employeeForm.value.firstName,
+        lastName: this.employeeForm.value.lastName,
+        phoneNumber: this.employeeForm.value.phoneNumber, // Changed to use phoneNumber instead of phone
+        role: this.employeeForm.value.role,
+        address: this.employeeForm.value.address,
+        salary: this.employeeForm.value.salary,
+        permissions: this.employeeForm.value.permissions
+      };
+      
+      this.employeeService.updateEmployee(this.selectedEmployee.userId, employeeData).subscribe({
+        next: () => {
+          this.notificationService.showSuccess(`Employee ID ${this.selectedEmployee?.userId} updated successfully`);
+          this.loadEmployees();
+          this.resetForm();
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error(`Error updating employee ID ${this.selectedEmployee?.userId}:`, error);
+          this.notificationService.showError('Failed to update employee');
+          this.isLoading = false;
+        }
+      });
     }
   }
 
   // Delete employee
   deleteEmployee(employee: Employee): void {
-    if (confirm(`Are you sure you want to delete ${employee.name}?`)) {
-      this.employees = this.employees.filter(e => e.id !== employee.id);
-      if (this.selectedEmployee?.id === employee.id) {
-        this.resetForm();
-      }
+    if (confirm(`Are you sure you want to delete ${employee.firstName} ${employee.lastName}?`)) {
+      this.isLoading = true;
+      
+      this.employeeService.deleteEmployee(employee.userId).subscribe({
+        next: () => {
+          this.notificationService.showSuccess('Employee deleted successfully');
+          this.loadEmployees();
+          if (this.selectedEmployee?.userId === employee.userId) {
+            this.resetForm();
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error deleting employee:', error);
+          this.notificationService.showError('Failed to delete employee');
+          this.isLoading = false;
+        }
+      });
     }
   }
 
   // Toggle employee status
   toggleStatus(employee: Employee): void {
-    employee.status = employee.status === 'active' ? 'inactive' : 'active';
+    // Display confirmation with employee ID
+    const action = employee.isActive ? 'deactivate' : 'activate';
+    const confirmMessage = `Are you sure you want to ${action} employee ${employee.firstName} ${employee.lastName} (ID: ${employee.userId})?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    this.isLoading = true;
+    
+    if (employee.isActive) {
+      // Currently active, so deactivate
+      this.employeeService.deactivateEmployee(employee.userId).subscribe({
+        next: () => {
+          employee.isActive = false;
+          this.notificationService.showSuccess(`Employee ID ${employee.userId} deactivated successfully`);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error(`Error deactivating employee ID ${employee.userId}:`, error);
+          this.notificationService.showError('Failed to deactivate employee');
+          this.isLoading = false;
+        }
+      });
+    } else {
+      // Currently inactive, so activate
+      this.employeeService.activateEmployee(employee.userId).subscribe({
+        next: () => {
+          employee.isActive = true;
+          this.notificationService.showSuccess(`Employee ID ${employee.userId} activated successfully`);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error(`Error activating employee ID ${employee.userId}:`, error);
+          this.notificationService.showError('Failed to activate employee');
+          this.isLoading = false;
+        }
+      });
+    }
   }
 
   // Check if permission is selected
@@ -219,12 +263,19 @@ export class EmployeesComponent implements OnInit {
   get filteredEmployees(): Employee[] {
     return this.employees
       .filter(employee => 
-        (this.statusFilter === 'all' || employee.status === this.statusFilter) &&
+        (this.statusFilter === 'all' || 
+         (this.statusFilter === 'active' && employee.isActive) || 
+         (this.statusFilter === 'inactive' && !employee.isActive)) &&
         (this.searchTerm === '' || 
-          employee.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          `${employee.firstName} ${employee.lastName}`.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
           employee.email.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-          employee.role.toLowerCase().includes(this.searchTerm.toLowerCase())
+          (employee.role && employee.role.toLowerCase().includes(this.searchTerm.toLowerCase()))
         )
       );
+  }
+  
+  // Get full name of employee
+  getFullName(employee: Employee): string {
+    return `${employee.firstName} ${employee.lastName}`;
   }
 }

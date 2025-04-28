@@ -4,7 +4,8 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { routes } from './app.routes';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
-import { AuthService } from './services/auth.service';
+import { authInterceptor } from './services/auth.interceptor';
+import { NotificationService } from './services/notification.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -13,23 +14,10 @@ export const appConfig: ApplicationConfig = {
     provideCharts(withDefaultRegisterables()),
     provideHttpClient(
       withFetch(),
-      withInterceptors([
-        (req, next) => {
-          // Get the token from the auth service
-          const token = localStorage.getItem('auth_token');
-          
-          if (token) {
-            req = req.clone({
-              setHeaders: {
-                Authorization: `Bearer ${token}`
-              }
-            });
-          }
-          
-          return next(req);
-        }
-      ])
+      withInterceptors([authInterceptor])
     ),
-    provideAnimations()
+    provideAnimations(),
+    { provide: 'NotificationService', useExisting: NotificationService },
+    NotificationService
   ]
 };

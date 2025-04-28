@@ -1,285 +1,391 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, HostListener, ElementRef, ViewChild, Renderer2, OnDestroy } from '@angular/core';
+import { OrderService, PaginatedResponse } from '../services/order.service';
+import { AuthService } from '../services/auth.service';
+import { NotificationService } from '../services/notification.service';
+import { OrderStatus } from '../models/order-status.enum';
+// Fix the import path by moving up to the correct level
+import { Order, OrderItem } from '../models/order.model';
+import { Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
-
-interface Cycle {
-  id: number;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  stock: number;
-  image?: string;
-  description?: string;
-}
-
-interface CartItem {
-  cycle: Cycle;
-  quantity: number;
-}
-
-interface Order {
-  id: string;
-  customerId: number;
-  customerName: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  shippingAddress?: string;
-  items: CartItem[];
-  total: number;
-  date: string;
-  paymentMethod: string;
-  status: 'completed' | 'processing' | 'pending' | 'cancelled';
-  paymentId?: string;
-}
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-orders',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
   templateUrl: './orders.component.html',
-  styleUrl: './orders.component.scss'
+  styleUrls: ['./orders.component.scss'],
+  standalone: true,
+  imports: [FormsModule, CommonModule]
 })
-export class OrdersComponent implements OnInit {
-  // Filters
-  statusFilter: string = 'all';
-  dateFilter: string = 'all';
-  searchTerm: string = '';
+export class OrdersComponent implements OnInit, OnDestroy {
+  // Make enum available to template
+  OrderStatus = OrderStatus;
+  Math = Math; // Make Math available in template
   
-  // Pagination
-  currentPage: number = 1;
-  itemsPerPage: number = 10;
-  totalOrders: number = 0;
-  hasMorePages: boolean = false;
-  
-  // Selected order for details view
-  selectedOrder: Order | null = null;
-  
-  // Mock data for orders
-  orders: Order[] = [
-    {
-      id: 'ORD-1234',
-      customerId: 1,
-      customerName: 'Rahul Sharma',
-      customerEmail: 'rahul@example.com',
-      customerPhone: '9876543210',
-      shippingAddress: '123 Main Street, Mumbai, Maharashtra 400001',
-      items: [
-        { 
-          cycle: {
-            id: 1, 
-            name: 'Mountain Explorer Pro', 
-            category: 'Mountain Bikes', 
-            brand: 'TrekCycle', 
-            price: 24999, 
-            stock: 10
-          },
-          quantity: 1
-        }
-      ],
-      total: 24999,
-      date: '2025-04-22',
-      paymentMethod: 'Card',
-      status: 'completed',
-      paymentId: 'PAY-RAZR-12345'
-    },
-    {
-      id: 'ORD-1235',
-      customerId: 2,
-      customerName: 'Priya Singh',
-      customerEmail: 'priya@example.com',
-      customerPhone: '8765432109',
-      items: [
-        { 
-          cycle: {
-            id: 5, 
-            name: 'Kids Explorer', 
-            category: 'Kids Bikes', 
-            brand: 'JuniorRide', 
-            price: 6500, 
-            stock: 18
-          },
-          quantity: 1
-        }
-      ],
-      total: 6500,
-      date: '2025-04-23',
-      paymentMethod: 'Cash',
-      status: 'completed'
-    },
-    {
-      id: 'ORD-1236',
-      customerId: 3,
-      customerName: 'Amit Kumar',
-      customerEmail: 'amit@example.com',
-      customerPhone: '7654321098',
-      shippingAddress: '45 Park Avenue, Delhi, Delhi 110001',
-      items: [
-        { 
-          cycle: {
-            id: 2, 
-            name: 'City Cruiser', 
-            category: 'City Bikes', 
-            brand: 'UrbanRide', 
-            price: 15999, 
-            stock: 15
-          },
-          quantity: 1
-        },
-        { 
-          cycle: {
-            id: 3, 
-            name: 'Road Master', 
-            category: 'Road Bikes', 
-            brand: 'SpeedCycle', 
-            price: 34999, 
-            stock: 5
-          },
-          quantity: 1
-        }
-      ],
-      total: 50998,
-      date: '2025-04-24',
-      paymentMethod: 'Card',
-      status: 'processing',
-      paymentId: 'PAY-RAZR-12346'
-    },
-    {
-      id: 'ORD-1237',
-      customerId: 4,
-      customerName: 'Deepa Patel',
-      customerEmail: 'deepa@example.com',
-      customerPhone: '6543210987',
-      shippingAddress: '789 Lake View, Bangalore, Karnataka 560001',
-      items: [
-        { 
-          cycle: {
-            id: 4, 
-            name: 'Hybrid Commuter', 
-            category: 'Hybrid Bikes', 
-            brand: 'CommutePro', 
-            price: 18999, 
-            stock: 8
-          },
-          quantity: 2
-        }
-      ],
-      total: 37998,
-      date: '2025-04-24',
-      paymentMethod: 'Card',
-      status: 'pending',
-      paymentId: 'PAY-RAZR-12347'
-    }
-  ];
-  
-  // Filtered orders based on applied filters
+  // Orders data
+  orders: Order[] = [];
   filteredOrders: Order[] = [];
+  selectedOrder: Order | null = null;
+  isLoading = true;
+  totalOrders = 0;
   
-  constructor() {}
+  // Server-side Pagination
+  currentPage = 1;
+  itemsPerPage = 7; // Default matching backend
+  totalPages = 1;
+  hasNextServerPage = false;
+  hasPreviousServerPage = false;
   
-  ngOnInit(): void {
-    this.applyFilters();
+  get hasPreviousPage(): boolean {
+    return this.hasPreviousServerPage;
   }
   
-  // Apply all filters
-  applyFilters(): void {
-    let filtered = [...this.orders];
+  get hasNextPage(): boolean {
+    return this.hasNextServerPage;
+  }
+  
+  // Return orders for display
+  get pagedOrders(): Order[] {
+    return this.orders;
+  }
+
+  // Calculate page numbers to show in pagination
+  get visiblePages(): number[] {
+    const delta = 1; // Number of pages to show before and after current page
+    const range: number[] = [];
     
-    // Status filter
-    if (this.statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === this.statusFilter);
-    }
-    
-    // Date filter
-    if (this.dateFilter !== 'all') {
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
+    if (this.totalPages <= 5) {
+      // If 5 or fewer pages, show all
+      for (let i = 1; i <= this.totalPages; i++) {
+        range.push(i);
+      }
+    } else {
+      // Always include current page and delta pages on either side
+      const lower = Math.max(1, this.currentPage - delta);
+      const upper = Math.min(this.totalPages, this.currentPage + delta);
       
-      switch(this.dateFilter) {
-        case 'today':
-          filtered = filtered.filter(order => order.date === todayStr);
-          break;
-        case 'week':
-          const weekAgo = new Date();
-          weekAgo.setDate(today.getDate() - 7);
-          filtered = filtered.filter(order => new Date(order.date) >= weekAgo);
-          break;
-        case 'month':
-          const monthAgo = new Date();
-          monthAgo.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter(order => new Date(order.date) >= monthAgo);
-          break;
+      for (let i = lower; i <= upper; i++) {
+        range.push(i);
       }
     }
     
-    // Search term
-    if (this.searchTerm.trim() !== '') {
-      const term = this.searchTerm.toLowerCase().trim();
-      filtered = filtered.filter(order => 
-        order.id.toLowerCase().includes(term) || 
-        order.customerName.toLowerCase().includes(term)
-      );
-    }
-    
-    // Update filtered orders and pagination info
-    this.totalOrders = filtered.length;
-    
-    // Apply pagination
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    this.filteredOrders = filtered.slice(startIndex, startIndex + this.itemsPerPage);
-    
-    this.hasMorePages = startIndex + this.itemsPerPage < filtered.length;
+    return range;
   }
-  
-  // Reset all filters
+
+  // Filter states
+  statusFilter: string = 'all';
+  dateFilter: string = 'all';
+  searchTerm: string = '';
+
+  // Dropdown management
+  activeDropdownId: string | null = null;
+  dropdownOpen = false;
+  statusUpdateNotes: string = '';
+  private subscriptions: Subscription = new Subscription();
+
+  @ViewChild('statusDropdown') statusDropdown!: ElementRef;
+
+  constructor(
+    private orderService: OrderService,
+    private authService: AuthService,
+    private notificationService: NotificationService,
+    private renderer: Renderer2,
+    private elementRef: ElementRef
+  ) { }
+
+  ngOnInit(): void {
+    this.loadOrders();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  loadOrders(): void {
+    this.isLoading = true;
+    console.log('Loading orders for page:', this.currentPage);
+    
+    const sub = this.orderService.getOrders(this.currentPage, this.itemsPerPage).subscribe({
+      next: (response) => {
+        console.log('Orders response:', response);
+        if (response) {
+          this.orders = response.items || [];
+          this.totalOrders = response.totalItems || 0;
+          this.currentPage = response.pageNumber || 1;
+          this.totalPages = response.totalPages || 1;
+          this.hasNextServerPage = response.hasNextPage || false;
+          this.hasPreviousServerPage = response.hasPreviousPage || false;
+          
+          console.log(`Loaded ${this.orders.length} orders, page ${this.currentPage}/${this.totalPages}`);
+        } else {
+          this.orders = [];
+          this.totalOrders = 0;
+          console.error('Empty response received');
+        }
+        
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading orders:', error);
+        this.notificationService.showError('Failed to load orders. Please try again later.');
+        this.isLoading = false;
+        this.orders = [];
+      }
+    });
+    
+    this.subscriptions.add(sub);
+  }
+
+  applyFilters(): void {
+    // Reset to first page when applying filters
+    this.currentPage = 1;
+    this.loadOrders();
+    // Note: Server-side filtering would ideally be implemented here
+  }
+
   resetFilters(): void {
     this.statusFilter = 'all';
     this.dateFilter = 'all';
     this.searchTerm = '';
-    this.currentPage = 1;
     this.applyFilters();
   }
-  
-  // View order details
-  viewOrderDetails(order: Order): void {
-    this.selectedOrder = order;
+
+  changePage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+    this.loadOrders();
   }
-  
-  // Close order details modal
+
+  // Update page size and reload
+  updatePageSize(newSize: number): void {
+    this.itemsPerPage = newSize;
+    this.currentPage = 1; // Reset to first page
+    this.loadOrders();
+  }
+
+  viewOrderDetails(order: Order): void {
+    // Prevent duplicate clicks
+    if (this.selectedOrder?.orderId === order.orderId) return;
+    
+    this.selectedOrder = { ...order };
+    this.closeAllDropdowns();
+  }
+
   closeOrderDetails(): void {
     this.selectedOrder = null;
   }
-  
-  // Print invoice
+
   printInvoice(order: Order): void {
-    console.log('Printing invoice for order:', order.id);
-    // In a real app, implement actual printing functionality here
-    alert(`Printing invoice for order ${order.id}`);
+    // This would typically generate and open a print-friendly invoice
+    console.log('Printing invoice for order:', order.orderNumber);
+    this.notificationService.showInfo('Preparing invoice for printing...');
+    
+    // Example of invoice generation - would be replaced with actual implementation
+    const invoiceWindow = window.open('', '_blank');
+    if (invoiceWindow) {
+      invoiceWindow.document.write(`
+        <html>
+          <head>
+            <title>Invoice - ${order.orderNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { color: #2563EB; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+              th { background-color: #f3f4f6; }
+              .total { font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h1>Invoice: ${order.orderNumber}</h1>
+            <p>Date: ${new Date(order.orderDate).toLocaleDateString()}</p>
+            <p>Customer: ${order.customerName}</p>
+            <h2>Order Items</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Price</th>
+                  <th>Quantity</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${order.orderItems.map((item: OrderItem) => `
+                  <tr>
+                    <td>${item.cycleName}</td>
+                    <td>₹${item.unitPrice.toFixed(2)}</td>
+                    <td>${item.quantity}</td>
+                    <td>₹${item.subtotal.toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr class="total">
+                  <td colspan="3">Total</td>
+                  <td>₹${order.totalAmount.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+            <script>
+              window.onload = function() {
+                window.print();
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    } else {
+      this.notificationService.showError('Could not open print window. Please check your popup blocker settings.');
+    }
   }
-  
-  // Get CSS class for status badge
-  getStatusClass(status: string): string {
-    switch(status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
+
+  calculateSubtotal(order: Order): number {
+    return order.orderItems.reduce((sum: number, item: OrderItem) => sum + item.subtotal, 0);
+  }
+
+  calculateTax(order: Order): number {
+    // Assuming 18% tax rate
+    const subtotal = this.calculateSubtotal(order);
+    return subtotal * 0.18;
+  }
+
+  toggleOrderDropdown(orderId: string, event: Event): void {
+    // Prevent this from triggering document click
+    event.stopPropagation();
+    
+    // Toggle dropdown for this order
+    if (this.activeDropdownId === orderId) {
+      this.activeDropdownId = null;
+    } else {
+      this.activeDropdownId = orderId;
+      // Close modal dropdown if open
+      this.dropdownOpen = false;
+    }
+  }
+
+  toggleDropdown(): void {
+    // Toggle dropdown in the modal
+    this.dropdownOpen = !this.dropdownOpen;
+    // Close table dropdowns if open
+    this.activeDropdownId = null;
+  }
+
+  closeAllDropdowns(): void {
+    this.activeDropdownId = null;
+    this.dropdownOpen = false;
+  }
+
+  // Method to handle clicking outside of dropdown
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    // Check if click was outside dropdown
+    if (!this.elementRef.nativeElement.contains(event.target)) {
+      this.closeAllDropdowns();
+    }
+  }
+
+  updateOrderStatus(order: Order, newStatus: OrderStatus): void {
+    // Convert enum value to string status
+    const statusString = this.getStatusLabel(newStatus);
+    
+    // Create payload for API
+    const statusUpdate = {
+      orderId: order.orderId,
+      status: statusString, // Send string status instead of numeric enum
+      notes: this.statusUpdateNotes || undefined
+    };
+    
+    console.log('Updating order status:', statusUpdate);
+    
+    // Call API to update status
+    this.orderService.updateOrderStatus(statusUpdate).subscribe({
+      next: () => {
+        // Update local order object
+        order.status = newStatus;
+        
+        // If the selected order is the same, update it too
+        if (this.selectedOrder && this.selectedOrder.orderId === order.orderId) {
+          this.selectedOrder.status = newStatus;
+        }
+        
+        this.notificationService.showSuccess(`Order status updated to ${statusString}`);
+        this.closeAllDropdowns();
+        this.statusUpdateNotes = ''; // Reset notes
+      },
+      error: (error) => {
+        console.error('Error updating order status:', error);
+        this.notificationService.showError('Failed to update order status. Please try again.');
+      }
+    });
+  }
+
+  getStatusLabel(status?: OrderStatus): string {
+    switch (status) {
+      case OrderStatus.PENDING: return 'Pending';
+      case OrderStatus.PROCESSING: return 'Processing';
+      case OrderStatus.SHIPPED: return 'Shipped';
+      case OrderStatus.DELIVERED: return 'Delivered';
+      case OrderStatus.CANCELLED: return 'Cancelled';
+      case OrderStatus.REFUNDED: return 'Refunded';
+      default: return 'Unknown';
+    }
+  }
+
+  getStatusClass(status?: OrderStatus): string {
+    switch (status) {
+      case OrderStatus.PENDING:
         return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled':
+      case OrderStatus.PROCESSING:
+        return 'bg-blue-100 text-blue-800';
+      case OrderStatus.SHIPPED:
+        return 'bg-purple-100 text-purple-800';
+      case OrderStatus.DELIVERED:
+        return 'bg-green-100 text-green-800';
+      case OrderStatus.CANCELLED:
         return 'bg-red-100 text-red-800';
+      case OrderStatus.REFUNDED:
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   }
-  
-  // Calculate subtotal for an order (before tax)
-  calculateSubtotal(order: Order): number {
-    return order.total / 1.18; // Assuming 18% tax
+
+  // Check user permissions
+  hasRole(roleName: string): boolean {
+    return this.authService.hasRole(roleName);
   }
-  
-  // Calculate tax amount for an order
-  calculateTax(order: Order): number {
-    return order.total - this.calculateSubtotal(order);
+
+  // Handler for the simplified status dropdown change event
+  onStatusChanged(event: Event, order: Order): void {
+    const select = event.target as HTMLSelectElement;
+    const newStatus = parseInt(select.value) as OrderStatus;
+    
+    // Prevent unnecessary status updates
+    if (newStatus === order.status) {
+      return;
+    }
+    
+    // Confirm before changing to cancelled or refunded status
+    if (newStatus === OrderStatus.CANCELLED || newStatus === OrderStatus.REFUNDED) {
+      if (!confirm(`Are you sure you want to mark this order as ${this.getStatusLabel(newStatus)}?`)) {
+        // Reset the dropdown to the original value if user cancels
+        select.value = order.status.toString();
+        return;
+      }
+    }
+    
+    // Update the order status
+    this.updateOrderStatus(order, newStatus);
+  }
+
+  // Check if the current user can change the status
+  canChangeStatus(status?: OrderStatus): boolean {
+    // Only Admin and Managers can cancel or refund orders
+    if ((status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) && 
+        !(this.hasRole('Admin') || this.hasRole('Manager'))) {
+      return false;
+    }
+    
+    return true;
   }
 }

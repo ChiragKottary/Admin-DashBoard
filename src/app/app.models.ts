@@ -12,11 +12,13 @@ export enum MovementType {
 }
 
 export enum OrderStatus {
-    PENDING = 'PENDING',
-    PROCESSING = 'PROCESSING',
-    SHIPPED = 'SHIPPED',
-    DELIVERED = 'DELIVERED',
-    CANCELLED = 'CANCELLED'
+    PENDING = 0,
+    PROCESSING = 1,
+    SHIPPED = 2,
+    DELIVERED = 3,
+    CANCELLED = 4,
+    // Adding additional values to match the API response (status 7 was observed)
+    REFUNDED = 7
 }
 
 export enum PaymentStatus {
@@ -99,6 +101,7 @@ export interface IPayment {
 export interface IOrderItem {
     orderItemId: string;
     orderId: string;
+    cycleName:string;
     order?: IOrder;
     cycleId: string;
     cycle?: ICycle;
@@ -113,6 +116,7 @@ export interface IOrderItem {
 export interface IOrder {
     orderId: string;
     customerId: string;
+    customerName: string;
     customer?: ICustomer;
     orderNumber: string;
     status: OrderStatus;

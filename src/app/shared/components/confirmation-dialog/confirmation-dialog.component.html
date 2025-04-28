@@ -1,0 +1,35 @@
+<!-- Overlay background -->
+<div *ngIf="isVisible" 
+     class="confirmation-dialog-overlay" 
+     (click)="cancel()" 
+     [@overlayAnimation]>
+</div>
+
+<!-- Dialog box -->
+<div *ngIf="isVisible" 
+     class="confirmation-dialog" 
+     [@dialogAnimation]
+     (click)="$event.stopPropagation()">
+  
+  <div class="dialog-header">
+    <h3>{{ dialogData?.title || 'Confirmation' }}</h3>
+    <button type="button" class="close-button" (click)="cancel()">✕</button>
+  </div>
+  
+  <div class="dialog-content">
+    <p>{{ dialogData?.message }}</p>
+  </div>
+  
+  <div class="dialog-footer">
+    <button type="button" 
+            class="button-cancel" 
+            (click)="cancel()">
+      {{ dialogData?.cancelText || 'Cancel' }}
+    </button>
+    <button type="button" 
+            class="button-confirm" 
+            (click)="confirm()">
+      {{ dialogData?.confirmText || 'Confirm' }}
+    </button>
+  </div>
+</div>
