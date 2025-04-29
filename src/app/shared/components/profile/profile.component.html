@@ -1,0 +1,48 @@
+<div class="relative" (clickOutside)="closeDropdown()">
+  <!-- Profile Trigger Button -->
+  <div class="flex items-center space-x-3 cursor-pointer" (click)="toggleProfileDropdown()">
+    <div class="flex flex-col items-end">
+      <span class="text-gray-700 font-medium hidden md:block">{{ user?.email }}</span>
+      <span class="text-xs text-gray-500">Role: <span class="font-semibold">{{ user?.roles.includes('Admin') ? 'Admin' : 'Employee' }}</span></span>
+    </div>
+    <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
+      <i class="bi bi-person"></i>
+    </div>
+  </div>
+
+  <!-- Profile Dropdown -->
+  <div *ngIf="isProfileDropdownOpen" 
+       class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-50 overflow-hidden transform origin-top-right transition-all duration-200 ease-out"
+       [class.scale-95]="!isProfileDropdownOpen"
+       [class.scale-100]="isProfileDropdownOpen">
+    <!-- Profile Header -->
+    <div class="bg-blue-600 p-4 text-white">
+      <div class="flex items-center space-x-3">
+        <div class="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+          <i class="bi bi-person text-xl"></i>
+        </div>
+        <div>
+          <h4 class="font-semibold">{{ user?.firstName || 'User' }} {{ user?.lastName || '' }}</h4>
+          <p class="text-sm opacity-80">{{ user?.email }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Profile Menu -->
+    <div class="py-2">
+      <a (click)="navigateToProfile()" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+        <i class="bi bi-person-circle mr-3"></i>
+        My Profile
+      </a>
+      <a (click)="navigateToSettings()" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+        <i class="bi bi-gear mr-3"></i>
+        Settings
+      </a>
+      <div class="border-t border-gray-200 my-1"></div>
+      <button (click)="logout()" class="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+        <i class="bi bi-box-arrow-right mr-3"></i>
+        Logout
+      </button>
+    </div>
+  </div>
+</div>

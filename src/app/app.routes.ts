@@ -29,6 +29,10 @@ export const routes: Routes = [
       },
       { path: 'pos', component: PosComponent },
       { path: 'orders', component: OrdersComponent },
+      {
+        path: 'profile',
+        loadChildren: () => import('./profile/profile.module').then(m => m.ProfileModule),
+      }
     ]
   },
   // Catch-all route - redirect to login

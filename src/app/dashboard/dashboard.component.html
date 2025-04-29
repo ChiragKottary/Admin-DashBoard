@@ -5,6 +5,64 @@
     <p>Welcome back! Here's what's happening with your store today.</p>
   </div>
 
+  <!-- Dynamic Summary Stats from database -->
+  <div class="summary-stats">
+    <!-- Total Revenue -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background-color: #36a2eb33">
+        <i class="bi bi-currency-rupee" style="color: #36a2eb"></i>
+      </div>
+      <div class="stat-content">
+        <h4>₹{{ totalRevenue | number:'1.2-2' }}</h4>
+        <p>Total Revenue</p>
+      </div>
+    </div>
+    
+    <!-- Orders -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background-color: #ff638433">
+        <i class="bi bi-bar-chart-line" style="color: #ff6384"></i>
+      </div>
+      <div class="stat-content">
+        <h4>{{ totalOrders }}</h4>
+        <p>Orders</p>
+      </div>
+    </div>
+    
+    <!-- Profit Margin -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background-color: #4bc0c033">
+        <i class="bi bi-percent" style="color: #4bc0c0"></i>
+      </div>
+      <div class="stat-content">
+        <h4>{{ profitMargin | number:'1.2-2' }}%</h4>
+        <p>Profit Margin</p>
+      </div>
+    </div>
+    
+    <!-- Avg Order Value -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background-color: #ffcd5633">
+        <i class="bi bi-currency-rupee" style="color: #ffcd56"></i>
+      </div>
+      <div class="stat-content">
+        <h4>₹{{ averageOrderValue | number:'1.2-2' }}</h4>
+        <p>Avg Order Value</p>
+      </div>
+    </div>
+    
+    <!-- Total Profit -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background-color: #9966ff33">
+        <i class="bi bi-currency-rupee" style="color: #9966ff"></i>
+      </div>
+      <div class="stat-content">
+        <h4>₹{{ totalProfit | number:'1.2-2' }}</h4>
+        <p>Total Profit</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Summary Cards -->
   <div class="summary-cards">
     <div class="card">
@@ -17,18 +75,6 @@
         <i class="bi bi-bicycle"></i>
       </div>
     </div>
-
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">Revenue</h5>
-        <h2>₹{{ totalRevenue | number }}</h2>
-        <p>Last 30 days</p>
-      </div>
-      <div class="card-icon">
-        <i class="bi bi-currency-rupee"></i>
-      </div>
-    </div>
-
     <!-- Only show Employees card for Admin users -->
     <div class="card" *ngIf="isAdmin">
       <div class="card-body">
@@ -49,6 +95,38 @@
       </div>
       <div class="card-icon">
         <i class="bi bi-box"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Summary Stats from the new API - can be hidden -->
+  <div class="summary-stats" *ngIf="false && summaryStats && summaryStats.length > 0">
+    <div class="stat-card" *ngFor="let stat of summaryStats">
+      <div class="stat-icon" [style.background-color]="stat.color + '33'">
+        <i class="bi" 
+          [ngClass]="{
+            'bi-currency-rupee': stat.format === 'currency',
+            'bi-percent': stat.format === 'percent',
+            'bi-bar-chart-line': stat.format === 'number'
+          }"
+          [style.color]="stat.color"></i>
+      </div>
+      <div class="stat-content">
+        <h4>{{ formatValue(stat.value, stat.format) }}</h4>
+        <p>{{ stat.label }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date Range Filter -->
+  <div class="date-filter">
+    <div class="filter-header">
+      <h3>Dashboard Data</h3>
+      <div class="filter-control">
+        <label for="dateFilter">Time Period:</label>
+        <select id="dateFilter" [(ngModel)]="selectedDateFilter" (change)="onDateFilterChange(selectedDateFilter)">
+          <option *ngFor="let option of dateFilterOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
       </div>
     </div>
   </div>
@@ -75,20 +153,76 @@
 
   <!-- Charts Section -->
   <div class="charts-section">
-    <div class="chart-container">
-      <canvas baseChart
-        [data]="salesChartData"
-        [options]="salesChartOptions"
-        [type]="'line'">
-      </canvas>
+    <!-- New Revenue Trend Chart -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Revenue & Profit Trend (Last 30 Days)</h3>
+      </div>
+      <div class="chart-container">
+        <canvas baseChart #revenueTrendChart
+          [data]="revenueTrendChartData"
+          [options]="revenueTrendChartOptions"
+          [type]="revenueTrendChartType">
+        </canvas>
+      </div>
     </div>
 
-    <div class="chart-container">
-      <canvas baseChart
-        [data]="stockChartData"
-        [options]="stockChartOptions"
-        [type]="'doughnut'">
-      </canvas>
+    <!-- New Sales Comparison Chart -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Sales Metrics Comparison</h3>
+      </div>
+      <div class="chart-container">
+        <canvas baseChart #salesComparisonChart
+          [data]="salesComparisonChartData"
+          [options]="salesComparisonChartOptions"
+          [type]="salesComparisonChartType">
+        </canvas>
+      </div>
+    </div>
+
+    <!-- Original Sales trend chart - can be commented out if not needed -->
+    <div class="chart-card" style="display: none;">
+      <div class="chart-header">
+        <h3>Sales Trend (Last 30 Days)</h3>
+      </div>
+      <div class="chart-container">
+        <canvas baseChart #salesChart
+          [data]="salesChartData"
+          [options]="salesChartOptions"
+          [type]="salesChartType">
+        </canvas>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <!-- Top Selling Cycles -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Top Selling Cycles</h3>
+        </div>
+        <div class="chart-container">
+          <canvas baseChart #cyclesChart
+            [data]="cyclesChartData"
+            [options]="cyclesChartOptions"
+            [type]="cyclesChartType">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Top Brands -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Top Brands</h3>
+        </div>
+        <div class="chart-container">
+          <canvas baseChart #brandsChart
+            [data]="brandsChartData"
+            [options]="brandsChartOptions"
+            [type]="brandsChartType">
+          </canvas>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -102,7 +236,7 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Order ID</th>
+            <th>Order #</th>
             <th>Customer</th>
             <th>Date</th>
             <th>Amount</th>
@@ -111,12 +245,17 @@
         </thead>
         <tbody>
           <tr *ngFor="let order of recentOrders">
-            <td>{{ order.id }}</td>
+            <td>{{ order.orderNumber }}</td>
             <td>{{ order.customer }}</td>
             <td>{{ order.date | date }}</td>
-            <td>₹{{ order.amount }}</td>
+            <td>₹{{ order.amount | number:'1.2-2' }}</td>
             <td>
               <span class="status-badge" [class]="order.status.toLowerCase()">{{ order.status }}</span>
+            </td>
+          </tr>
+          <tr *ngIf="recentOrders.length === 0">
+            <td colspan="5" class="text-center py-4 text-gray-500">
+              No recent orders found
             </td>
           </tr>
         </tbody>

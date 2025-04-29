@@ -1,0 +1,123 @@
+<div class="profile-container">
+  <div class="profile-card">
+    <div class="card-header">
+      <h2>User Profile</h2>
+      <button 
+        *ngIf="!isEditMode && !isLoading" 
+        (click)="toggleEditMode()" 
+        class="btn-edit">
+        Edit Profile
+      </button>
+      <div *ngIf="isEditMode && !isLoading" class="edit-actions">
+        <button (click)="saveProfile()" class="btn-save" [disabled]="profileForm.invalid">Save</button>
+        <button (click)="toggleEditMode()" class="btn-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div *ngIf="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading profile data...</p>
+    </div>
+
+    <div class="card-body" *ngIf="user && !isLoading">
+      <div *ngIf="!isEditMode" class="profile-info">
+        <div class="info-row">
+          <span class="info-label">Email:</span>
+          <span class="info-value">{{employeeDetails?.email}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">First Name:</span>
+          <span class="info-value">{{employeeDetails?.firstName}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Last Name:</span>
+          <span class="info-value">{{employeeDetails?.lastName}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Phone Number:</span>
+          <span class="info-value">{{employeeDetails?.phoneNumber || 'Not provided'}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Address:</span>
+          <span class="info-value">{{employeeDetails?.address || 'Not provided'}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Role:</span>
+          <span class="info-value">{{user?.roles?.join(', ')}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">User ID:</span>
+          <span class="info-value">{{user?.userId}}</span>
+        </div>
+      </div>
+
+      <form *ngIf="isEditMode" [formGroup]="profileForm" class="profile-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            formControlName="email" 
+            class="form-control"
+            [disabled]="true">
+          <small class="form-text text-muted">Email cannot be changed</small>
+        </div>
+
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <input 
+            type="text" 
+            id="firstName" 
+            formControlName="firstName" 
+            class="form-control"
+            [ngClass]="{'invalid': profileForm.get('firstName')?.invalid && profileForm.get('firstName')?.touched}">
+          <div *ngIf="profileForm.get('firstName')?.invalid && profileForm.get('firstName')?.touched" class="error-message">
+            <span *ngIf="profileForm.get('firstName')?.errors?.['required']">First name is required</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <input 
+            type="text" 
+            id="lastName" 
+            formControlName="lastName" 
+            class="form-control"
+            [ngClass]="{'invalid': profileForm.get('lastName')?.invalid && profileForm.get('lastName')?.touched}">
+          <div *ngIf="profileForm.get('lastName')?.invalid && profileForm.get('lastName')?.touched" class="error-message">
+            <span *ngIf="profileForm.get('lastName')?.errors?.['required']">Last name is required</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="phoneNumber">Phone Number</label>
+          <input 
+            type="tel" 
+            id="phoneNumber" 
+            formControlName="phoneNumber" 
+            class="form-control"
+            [ngClass]="{'invalid': profileForm.get('phoneNumber')?.invalid && profileForm.get('phoneNumber')?.touched}">
+          <div *ngIf="profileForm.get('phoneNumber')?.invalid && profileForm.get('phoneNumber')?.touched" class="error-message">
+            <span *ngIf="profileForm.get('phoneNumber')?.errors?.['pattern']">Please enter a valid phone number (10-15 digits)</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="address">Address</label>
+          <textarea 
+            id="address" 
+            formControlName="address" 
+            class="form-control"
+            rows="3"></textarea>
+        </div>
+      </form>
+
+      <div *ngIf="!isEditMode" class="profile-actions">
+        <button class="btn-change-password" (click)="toggleEditMode()">
+          Update Profile
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

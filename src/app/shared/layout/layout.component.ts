@@ -4,11 +4,20 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ToastNotificationsComponent } from '../components/notifications/toast-notifications.component';
 import { ConfirmationDialogComponent } from "../components/confirmation-dialog/confirmation-dialog.component";
+import { ProfileComponent } from "../components/profile/profile.component";
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ToastNotificationsComponent, ConfirmationDialogComponent],
+  imports: [
+    CommonModule, 
+    RouterOutlet, 
+    RouterLink, 
+    RouterLinkActive, 
+    ToastNotificationsComponent, 
+    ConfirmationDialogComponent,
+    ProfileComponent
+  ],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.scss'
 })

@@ -81,15 +81,8 @@
             <span class="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
           </button>
         </div>
-        <div class="flex items-center space-x-3">
-          <div class="flex flex-col items-end">
-            <span class="text-gray-700 font-medium hidden md:block">{{ userEmail }}</span>
-            <span class="text-xs text-gray-500">Role: <span class="font-semibold">{{ isAdmin ? 'Admin' : 'Employee' }}</span></span>
-          </div>
-          <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
-            <i class="bi bi-person"></i>
-          </div>
-        </div>
+        <!-- Profile Component -->
+        <app-profile></app-profile>
       </div>
     </header>
     
